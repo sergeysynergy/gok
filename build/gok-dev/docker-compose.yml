@@ -1,0 +1,17 @@
+version: '3.5'
+services:
+  postgres:
+    container_name: gok_dev_postgres
+    image: gok-dev-postgres
+    shm_size: '8gb'
+    ports:
+      - "45432:5432"
+    volumes :
+      - ../../db-mysqlDB:/workdir
+
+  #  При необходимости, можно подключить легковесную админку для прямого подключения к БД
+  #  adminer:
+  #    container_name: gok_dev_adminer
+  #    image: adminer
+  #    ports:
+  #      - "33080:8080"

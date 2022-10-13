@@ -74,15 +74,15 @@ func main() {
 
 	return
 	//cfg := config.New()
-	//flag.StringVar(&cfg.Addr, "a", "127.0.0.1:8080", "server address")
-	//flag.DurationVar(&cfg.ReportInterval, "r", 10*time.Second, "interval for sending metrics to the server")
+	//flag.StringVar(&cfg.Addr, "a", "127.0.0.1:8080", "service address")
+	//flag.DurationVar(&cfg.ReportInterval, "r", 10*time.Second, "interval for sending metrics to the service")
 	//flag.DurationVar(&cfg.PollInterval, "p", 2*time.Second, "update metrics interval")
 	//flag.StringVar(&cfg.Key, "k", "", "sign key")
 	//flag.StringVar(&cfg.CryptoKey, "crypto-key", "", "path to file with public key")
 	//flag.StringVar(&cfg.ConfigFile, "c", cfg.ConfigFile, "path to file with public key")
 	//flag.StringVar(&cfg.ConfigFile, "config", cfg.ConfigFile, "path to file with public key")
-	//flag.StringVar(&cfg.Addr, "a", cfg.Addr, "server address")
-	//flag.DurationVar(&cfg.ReportInterval, "r", cfg.ReportInterval, "interval for sending metrics to the server")
+	//flag.StringVar(&cfg.Addr, "a", cfg.Addr, "service address")
+	//flag.DurationVar(&cfg.ReportInterval, "r", cfg.ReportInterval, "interval for sending metrics to the service")
 	//flag.DurationVar(&cfg.PollInterval, "p", cfg.PollInterval, "update metrics interval")
 	//flag.StringVar(&cfg.Key, "k", cfg.Key, "sign key")
 	//flag.StringVar(&cfg.CryptoKey, "crypto-key", cfg.CryptoKey, "path to file with public key")
@@ -112,9 +112,9 @@ These are common GoK commands used in various situations:
 start working with GoK
 	init	Create a new empty database to store secret data
 
-sync data with server
-	pull 	Fetch data from server to local database
-	push    Update remote data on server
+sync data with service
+	pull 	Fetch data from service to local database
+	push    Update remote data on service
 `
 	fmt.Println(msg)
 }
