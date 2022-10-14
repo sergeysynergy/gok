@@ -23,8 +23,8 @@ func (r *Repo) Create(ctx context.Context, ses *entity.Session) error {
 	tx := r.db.WithContext(ctx)
 
 	sesDB := model.Session{
-		//UserID: ses.UserID,
-		Token: ses.Token,
+		UserID: int32(ses.UserID),
+		Token:  ses.Token,
 	}
 
 	err := tx.Create(&sesDB).Error

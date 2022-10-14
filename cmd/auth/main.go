@@ -23,6 +23,7 @@ func main() {
 
 	cfg := service.New(
 		service.WithDSN("user=gok password=Passw0rd33 host=localhost port=45432 dbname=auth"),
+		service.WithDebug(true),
 	)
 
 	flag.BoolVar(&cfg.Debug, "debug", cfg.Debug, "run service in debug mode")
@@ -35,6 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	fmt.Println("WTF", cfg)
 
 	lg := zapLogger.NewServerLogger(cfg.Debug)
 

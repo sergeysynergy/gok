@@ -35,3 +35,10 @@ func WithDSN(dsn string) option {
 		}
 	}
 }
+
+// WithDebug optionally provide DEBUG value flag.
+func WithDebug(debug bool) option {
+	return func(cfg *Conf) {
+		cfg.Debug = debug
+	}
+}

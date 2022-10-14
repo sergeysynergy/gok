@@ -42,17 +42,17 @@ func (r *Repo) Create(ctx context.Context, usr *entity.User) (id entity.UserID, 
 	return id, nil
 }
 
-func (r *Repo) Read(ctx context.Context, id int32) (*entity.User, error) {
-	tx := r.db.WithContext(ctx)
-
-	usrDB := model.User{}
-	err := tx.Take(&usrDB, id).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return &entity.User{}, nil
-}
+//func (r *Repo) Read(ctx context.Context, id int32) (*entity.User, error) {
+//	tx := r.db.WithContext(ctx)
+//
+//	usrDB := model.User{}
+//	err := tx.Take(&usrDB, id).Error
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return &entity.User{}, nil
+//}
 
 //func (r *Repo) List(ctx context.Context, offset, limit int) (*entity.UsersList, error) {
 //	tx := r.db.WithContext(ctx)

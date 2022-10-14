@@ -5,17 +5,12 @@ import (
 	"github.com/sergeysynergy/gok/internal/entity"
 )
 
-// CRUD контракт на реализацию операций CRUD: create, read, update, delete.
-type CRUD interface {
+type Repo interface {
+	// Create new record, pair: token - userID.
 	Create(context.Context, *entity.Session) error
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type Repo interface {
-	CRUD
-}
-
 type UseCase interface {
-	Add(context.Context, *entity.Session) error
+	// Add new session record for given userID, return token value.
+	Add(context.Context, entity.UserID) (*string, error)
 }

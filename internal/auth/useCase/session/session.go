@@ -8,8 +8,7 @@ import (
 	"github.com/sergeysynergy/gok/internal/entity"
 )
 
-// UseCaseForSession is realization for session.UseCase interface.
-// Describes all business-logic needed to work with `session` entity.
+// UseCaseForSession describes all business-logic needed to work with `session` entity.
 type UseCaseForSession struct {
 	lg   *zap.Logger
 	repo Repo
@@ -26,16 +25,23 @@ func New(logger *zap.Logger, repo Repo) *UseCaseForSession {
 	return s
 }
 
-func (u *UseCaseForSession) Add(ctx context.Context, ses *entity.Session) error {
-	errPrefix := "UseCaseForSession.Add"
+func (u *UseCaseForSession) Add(ctx context.Context, usrID entity.UserID) (*string, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			errPrefix := "UseCaseForSession.Add"
+			err = fmt.Errorf("%s - %w", errPrefix, err)
+			u.lg.Error(err.Error())
+		}
+	}()
 
-	err := u.repo.Create(ctx, ses)
+	ses := entity.NewSession(usrID)
+
+	err = u.repo.Create(ctx, ses)
 	if err != nil {
-		err = fmt.Errorf("%s - %w", errPrefix, err)
-		u.lg.Error(err.Error())
-		return err
+		return nil, err
 	}
 	u.lg.Debug("New user session has been successfully created")
 
-	return nil
+	return &ses.Token, nil
 }

@@ -9,6 +9,12 @@ psql -U postgres <<- EOSQL
     CREATE DATABASE "storage";
     GRANT ALL PRIVILEGES ON DATABASE "storage" TO $user;
 
+    CREATE DATABASE "storage_test";
+    GRANT ALL PRIVILEGES ON DATABASE "storage_test" TO $user;
+
     CREATE DATABASE "auth";
     GRANT ALL PRIVILEGES ON DATABASE "auth" TO $user;
+
+    CREATE DATABASE "auth_test";
+    GRANT ALL PRIVILEGES ON DATABASE "auth_test" TO $user;
 EOSQL

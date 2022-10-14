@@ -15,8 +15,10 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sergeysynergy/gok/internal/auth/data/model"
+	sesRepo "github.com/sergeysynergy/gok/internal/auth/data/repository/psql/session"
 	usrRepo "github.com/sergeysynergy/gok/internal/auth/data/repository/psql/user"
 	ServerGRPC "github.com/sergeysynergy/gok/internal/auth/delivery/server"
+	sesUC "github.com/sergeysynergy/gok/internal/auth/useCase/session"
 	usrUC "github.com/sergeysynergy/gok/internal/auth/useCase/user"
 	"github.com/sergeysynergy/gok/internal/consts"
 	pb "github.com/sergeysynergy/gok/proto"
@@ -76,10 +78,10 @@ func (a *App) dbConnect() {
 }
 
 func (a *App) initUseCase() {
-	//sesRepo := sesRepo.New(a.db)
+	sessionRepo := sesRepo.New(a.db)
+	session := sesUC.New(a.lg, sessionRepo)
 	userRepo := usrRepo.New(a.db)
-	//sessionRepo := usrRepo.New(a.db)
-	a.user = usrUC.New(a.lg, userRepo)
+	a.user = usrUC.New(a.lg, userRepo, session)
 }
 
 func (a *App) initGRPCServer() {
