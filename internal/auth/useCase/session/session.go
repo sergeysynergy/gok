@@ -1,8 +1,9 @@
-package user
+package session
 
 import (
 	"context"
 	"fmt"
+	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 	"go.uber.org/zap"
 
 	"github.com/sergeysynergy/gok/internal/entity"
@@ -44,4 +45,29 @@ func (u *UseCaseForSession) Add(ctx context.Context, usrID entity.UserID) (*stri
 	u.lg.Debug("New user session has been successfully created")
 
 	return &ses.Token, nil
+}
+
+func (u *UseCaseForSession) Get(ctx context.Context, token string) (*entity.Session, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			errPrefix := "UseCaseForSession.Get"
+			err = fmt.Errorf("%s - %w", errPrefix, err)
+			u.lg.Error(err.Error())
+		}
+	}()
+
+	ses, err := u.repo.Read(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	// Catch for possible zero user id.
+	if ses.UserID == 0 {
+		err = gokErrors.ErrUserZeroID
+		return nil, err
+	}
+
+	u.lg.Debug(fmt.Sprintf("Got session: userID %d", ses.UserID))
+
+	return ses, nil
 }

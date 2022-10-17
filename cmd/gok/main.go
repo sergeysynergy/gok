@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"github.com/sergeysynergy/gok/pkg/utils"
+	"github.com/sergeysynergy/gok/tool/zapLogger"
 	"os"
-
-	"github.com/google/uuid"
 )
 
 var (
@@ -14,36 +13,35 @@ var (
 )
 
 func main() {
-	// Выведем номер версии, сборки и комит, если доступны.
-	// Для задания переменных рекомендуется использовать опции линковщика, например:
-	// go run -ldflags "-X main.buildVersion=v1.0.1" main.go
-	//fmt.Printf("Build version: %s\n", utils.CheckNA(buildVersion))
-	//fmt.Printf("Build date: %s\n", utils.CheckNA(buildDate))
+	// Check for help argument, if found or no arguments at all: display and exit.
+	checkHelp()
 
-	// TODO: uncomment
-	//if len(os.Args) < 2 {
-	//	help()
-	//	return
+	// Check for client version argument, if found: display and exit.
+	checkVersion()
+
+	// Init logger.
+	lg := zapLogger.NewGokLogger(true)
+
+	//var home string
+	//for _, v := range os.Args {
+	//	switch v {
+	//	case "-":
+	//	case "--home":
+	//		home = "test"
+	//	}
 	//}
 
-	// TODO: Add logger init here
+	// Arguments shift counter: +2 for every pre command argument which will be found next.
+	argShift := 0
+	home := getHome()
+	lg.Debug("home: " + home)
 
-	var home string
-	for _, v := range os.Args {
-		switch v {
-		case "--home":
-			home = "test"
-		}
-	}
-
-	home = getHome(home)
-	log.Println("[DEBUG] home:", home)
-
-	id := uuid.New()
-	fmt.Println("Generated UUID:")
-	fmt.Println(id.String())
+	fmt.Println("SHIFT:", argShift)
+	return
 
 	switch os.Args[1] {
+	case "sign-in":
+		return
 	case "init":
 		//if err := doInit(); err != nil {
 		//	log.Fatalln(err)
@@ -103,14 +101,30 @@ func main() {
 	//a.Run()
 }
 
+// Check if os.Args contains string argument: return -1 if not, or position in os.Args.
+func argsContains(value string) int {
+	for i := 1; i < len(os.Args); i++ {
+		if os.Args[i] == value {
+			return i
+		}
+	}
+	return -1
+}
+
 func help() {
 	msg := `
-usage: gok [--version] [--help] <command> [<args>]
+usage: gok [--help] [--version] [-h] [-u] <command> [<args>]
+
+Pre command arguments:
+	--help		List available commands.
+	--version	Displays build version and date.
+	-h 			Set home directory where GoK will store its files. Use HOME environment value by default.
+	-u 			Set GoK user. Use USER environment value by default.
 
 These are common GoK commands used in various situations:
 
 start working with GoK
-	init	Create a new empty database to store secret data
+	init	Create new or pull existing branch to store secret data
 
 sync data with service
 	pull 	Fetch data from service to local database
@@ -119,22 +133,51 @@ sync data with service
 	fmt.Println(msg)
 }
 
-func doInit() error {
-	home, ok := os.LookupEnv("HOME")
-	if !ok {
-		msg := `
-fatal: HOME environment variable not found
+//func doInit() error {
+//	home, ok := os.LookupEnv("HOME")
+//	if !ok {
+//		msg := `
+//fatal: HOME environment variable not found
+//
+//Please export HOME variable or use --home argument.`
+//		fmt.Println(msg)
+//		return nil
+//	}
+//
+//	fmt.Println("home sweet home:", home)
+//	return nil
+//}
 
-Please export HOME variable or use --home argument.`
-		fmt.Println(msg)
-		return nil
+func checkHelp() {
+	// Checking if any argument given.
+	if len(os.Args) == 1 {
+		help()
+		os.Exit(0)
 	}
 
-	fmt.Println("home sweet home:", home)
-	return nil
+	pos := argsContains("--help")
+	if pos > 0 {
+		help()
+		os.Exit(0)
+	}
 }
 
-func getHome(home string) string {
+func checkVersion() {
+	pos := argsContains("--version")
+	if pos < 0 {
+		return
+	}
+
+	// Add build version and date of the client binary file:
+	// go run -ldflags "-X main.buildVersion=v1.0.1" main.go
+	fmt.Printf("Build version: %s\n", utils.CheckNA(buildVersion))
+	fmt.Printf("Build date: %s\n", utils.CheckNA(buildDate))
+
+	os.Exit(0)
+}
+
+func getHome() string {
+	var home string
 	envHome, ok := os.LookupEnv("HOME")
 	if ok {
 		// got HOME env value, just use it

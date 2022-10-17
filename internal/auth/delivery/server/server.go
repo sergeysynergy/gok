@@ -5,30 +5,35 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
-
 	usrUC "github.com/sergeysynergy/gok/internal/auth/useCase/user"
 	"github.com/sergeysynergy/gok/internal/entity"
-	serviceErrors "github.com/sergeysynergy/gok/internal/errors"
+	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 	pb "github.com/sergeysynergy/gok/proto"
+	"go.uber.org/zap"
+	"net"
 )
 
+// AuthServer implements API points to work with `Auth` service using gRPC protocol.
 type AuthServer struct {
 	pb.UnimplementedAuthServer
-	lg   *zap.Logger
-	user usrUC.UseCase
+	lg            *zap.Logger
+	trustedSubnet *net.IPNet
+	user          usrUC.UseCase
 }
 
 func New(
 	logger *zap.Logger,
+	trustedSubnet *net.IPNet,
 	user usrUC.UseCase,
 ) *AuthServer {
 	return &AuthServer{
-		lg:   logger,
-		user: user,
+		lg:            logger,
+		trustedSubnet: trustedSubnet,
+		user:          user,
 	}
 }
 
+// SignIn new user: create new user record, create new session, return session token.
 func (s AuthServer) SignIn(ctx context.Context, in *pb.SignInRequest) (*pb.SignInResponse, error) {
 	usr := &entity.User{
 		Login: in.User.Login,
@@ -36,7 +41,7 @@ func (s AuthServer) SignIn(ctx context.Context, in *pb.SignInRequest) (*pb.SignI
 
 	signedUsr, err := s.user.SignIn(ctx, usr)
 	if err != nil {
-		if errors.Is(err, serviceErrors.ErrUserAlreadyExists) {
+		if errors.Is(err, gokErrors.ErrUserAlreadyExists) {
 			return nil, ErrUserAlreadyExists
 		}
 		return nil, fmt.Errorf("%w - %s", ErrUserUnknownError, err)
@@ -46,6 +51,56 @@ func (s AuthServer) SignIn(ctx context.Context, in *pb.SignInRequest) (*pb.SignI
 		User: &pb.SignedUser{
 			Token: signedUsr.Token,
 			Key:   signedUsr.Key,
+		},
+	}, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Internal methods for cross-service communication.
+
+func (s AuthServer) cidrCheck() error {
+	if s.trustedSubnet.IP == nil || s.trustedSubnet.Mask == nil {
+		return fmt.Errorf("invalid trusted subnet given")
+	}
+
+	// TODO: Add CIDR check
+
+	//// Распарсим IP клиента.
+	//ipStr := r.Header.Get("X-Real-IP")
+	//ip := net.ParseIP(ipStr)
+	//if ip == nil {
+	//	raiseJSONedError(w, r, "failed to parse client IP", http.StatusForbidden)
+	//	return
+	//}
+
+	//// проверим, входит ли ip клиента в доверенную подсеть.
+	//if !trustedsubnet.contains(ip) {
+	//	raisejsonederror(w, r, "client ip not match trusted subnet", http.statusforbidden)
+	//	return
+	//}
+
+	return nil
+}
+
+// GetUser by token.
+func (s AuthServer) GetUser(ctx context.Context, in *pb.GetUserRequest) (*pb.GetUserResponse, error) {
+	err := s.cidrCheck()
+	if err != nil {
+		return &pb.GetUserResponse{}, ErrAuthRequired
+	}
+
+	usr, err := s.user.Get(ctx, in.Token)
+	if err != nil {
+		if errors.Is(err, gokErrors.ErrSessionNotFound) {
+			return &pb.GetUserResponse{}, ErrAuthRequired
+		}
+		return nil, err
+	}
+
+	return &pb.GetUserResponse{
+		User: &pb.User{
+			ID:    int32(usr.ID),
+			Login: usr.Login,
 		},
 	}, nil
 }

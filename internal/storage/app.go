@@ -1,4 +1,4 @@
-package auth
+package storage
 
 import (
 	"context"
@@ -14,13 +14,12 @@ import (
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
 
-	"github.com/sergeysynergy/gok/internal/auth/data/model"
-	sesRepo "github.com/sergeysynergy/gok/internal/auth/data/repository/psql/session"
-	usrRepo "github.com/sergeysynergy/gok/internal/auth/data/repository/psql/user"
-	ServerGRPC "github.com/sergeysynergy/gok/internal/auth/delivery/server"
-	sesUC "github.com/sergeysynergy/gok/internal/auth/useCase/session"
-	usrUC "github.com/sergeysynergy/gok/internal/auth/useCase/user"
 	"github.com/sergeysynergy/gok/internal/consts"
+	"github.com/sergeysynergy/gok/internal/storage/data/model"
+	brnRepo "github.com/sergeysynergy/gok/internal/storage/data/repository/psql/branch"
+	brnClient "github.com/sergeysynergy/gok/internal/storage/delivery/client"
+	ServerGRPC "github.com/sergeysynergy/gok/internal/storage/delivery/server"
+	brnUC "github.com/sergeysynergy/gok/internal/storage/useCase/branch"
 	pb "github.com/sergeysynergy/gok/proto"
 	"github.com/sergeysynergy/gok/tool/conf/service"
 )
@@ -29,12 +28,11 @@ type App struct {
 	cfg *service.Conf
 	lg  *zap.Logger
 
-	dbOnce        *sync.Once
-	db            *gorm.DB
-	trustedSubnet *net.IPNet
-	grpcServer    *grpc.Server
+	dbOnce     *sync.Once
+	db         *gorm.DB
+	grpcServer *grpc.Server
 
-	user usrUC.UseCase
+	branch brnUC.UseCase
 }
 
 func New(cfg *service.Conf, lg *zap.Logger) *App {
@@ -49,18 +47,9 @@ func New(cfg *service.Conf, lg *zap.Logger) *App {
 }
 
 func (a *App) init() {
-	a.parseCIDR()
 	a.dbConnect()
 	a.initUseCase()
 	a.initGRPCServer()
-}
-
-func (a *App) parseCIDR() {
-	_, ipNet, err := net.ParseCIDR(a.cfg.TrustedSubnet)
-	if err != nil {
-		a.lg.Fatal(fmt.Sprintf("Failed to parse CIDR string value - %s", err))
-	}
-	a.trustedSubnet = ipNet
 }
 
 func (a *App) dbConnect() {
@@ -73,7 +62,8 @@ func (a *App) dbConnect() {
 			a.lg.Fatal(fmt.Sprintf("Connection to Postgres is failed: %s", err))
 		}
 
-		err = db.AutoMigrate(&model.User{}, &model.Session{})
+		// Create and migrate database tables.
+		err = db.AutoMigrate(&model.Branch{})
 		if err != nil {
 			a.lg.Fatal(fmt.Sprintf("Auto migration has failed: %s", err))
 		}
@@ -84,10 +74,9 @@ func (a *App) dbConnect() {
 }
 
 func (a *App) initUseCase() {
-	sessionRepo := sesRepo.New(a.db)
-	session := sesUC.New(a.lg, sessionRepo)
-	userRepo := usrRepo.New(a.db)
-	a.user = usrUC.New(a.lg, userRepo, session)
+	branchRepo := brnRepo.New(a.db)
+	branchClient := brnClient.Client{}
+	a.branch = brnUC.New(a.lg, branchRepo, branchClient)
 }
 
 func (a *App) initGRPCServer() {
@@ -97,8 +86,8 @@ func (a *App) initGRPCServer() {
 	)
 
 	// Register our service with realization for protobuf methods.
-	srv := ServerGRPC.New(a.lg, a.trustedSubnet, a.user)
-	pb.RegisterAuthServer(a.grpcServer, srv)
+	srv := ServerGRPC.New(a.lg, a.branch)
+	pb.RegisterStorageServer(a.grpcServer, srv)
 }
 
 // runGraceDown Gracefully shutdown service on signals syscall.SIGTERM, syscall.SIGINT and syscall.SIGQUIT.

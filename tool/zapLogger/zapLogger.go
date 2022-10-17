@@ -40,3 +40,35 @@ func NewServerLogger(debug bool) *zap.Logger {
 
 	return logger
 }
+
+// NewGokLogger create zap config Gok CLI tool.
+func NewGokLogger(debug bool) *zap.Logger {
+	level := "warn"
+	if debug {
+		level = "debug"
+	}
+
+	rawJSON := []byte(`{
+	  "level": "` + level + `",
+	  "encoding": "json",
+	  "outputPaths": ["stdout", "/tmp/gok-cli.log"],
+	  "errorOutputPaths": ["stderr", "/tmp/gok-cli.error.log"],
+	  "encoderConfig": {
+	    "messageKey": "message",
+	    "levelKey": "level",
+	    "levelEncoder": "lowercase"
+	  }
+	}`)
+
+	var cfg zap.Config
+	if err := json.Unmarshal(rawJSON, &cfg); err != nil {
+		log.Fatal("Failed to unmarshal logger config: %w", err)
+	}
+	logger, err := cfg.Build()
+	if err != nil {
+		log.Fatal("Failed to init logger: %w", err)
+	}
+	logger.Debug("GoK CLI logger created successfully")
+
+	return logger
+}

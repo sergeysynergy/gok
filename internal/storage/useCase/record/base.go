@@ -54,27 +54,6 @@ func (u *UseCaseForUser) SignIn(ctx context.Context, usr *entity.User) (*entity.
 	return sgdUser, nil
 }
 
-func (u *UseCaseForUser) Get(ctx context.Context, token string) (*entity.User, error) {
-	var err error
-	defer func() {
-		if err != nil {
-			errPrefix := "UseCaseForUser.GetUser"
-			err = fmt.Errorf("%s - %w", errPrefix, err)
-			u.lg.Error(err.Error())
-		}
-	}()
-
-	// Get session by token, to reveal user ID.
-	ses, err := u.session.Get(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get user info.
-	usr, err := u.repo.Read(ctx, ses.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	return usr, nil
-}
+//func (u *UseCaseForUser) LogIn(ctx context.Context, usr *entity.User) (*entity.SignedUser, error) {
+//	return nil, nil
+//}

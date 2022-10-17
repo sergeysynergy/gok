@@ -2,11 +2,13 @@ package user
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"gorm.io/gorm"
 
 	"github.com/sergeysynergy/gok/internal/auth/data/model"
 	"github.com/sergeysynergy/gok/internal/entity"
-	serviceErrors "github.com/sergeysynergy/gok/internal/errors"
+	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 )
 
 type Repo struct {
@@ -34,7 +36,7 @@ func (r *Repo) Create(ctx context.Context, usr *entity.User) (id entity.UserID, 
 		}
 	}
 	if result.RowsAffected == 0 {
-		return 0, serviceErrors.ErrUserAlreadyExists
+		return 0, gokErrors.ErrUserAlreadyExists
 	}
 
 	id = entity.UserID(usrDB.ID)
@@ -42,39 +44,21 @@ func (r *Repo) Create(ctx context.Context, usr *entity.User) (id entity.UserID, 
 	return id, nil
 }
 
-//func (r *Repo) Read(ctx context.Context, id int32) (*entity.User, error) {
-//	tx := r.db.WithContext(ctx)
-//
-//	usrDB := model.User{}
-//	err := tx.Take(&usrDB, id).Error
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return &entity.User{}, nil
-//}
+func (r *Repo) Read(ctx context.Context, id entity.UserID) (*entity.User, error) {
+	if id == 0 {
+		return nil, gokErrors.ErrUserInvalidArgument
+	}
 
-//func (r *Repo) List(ctx context.Context, offset, limit int) (*entity.UsersList, error) {
-//	tx := r.db.WithContext(ctx)
-//
-//	var usersDB []*model.User
-//	err := tx.
-//		Order("ID").
-//		Offset(offset).
-//		Limit(limit).
-//		Find(&usersDB).
-//		Error
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	users := make([]*entity.User, 0, len(usersDB))
-//	for _, v := range usersDB {
-//		usr := v.DomainBind()
-//		users = append(users, usr)
-//	}
-//
-//	return &entity.UsersList{
-//		Users: users,
-//	}, nil
-//}
+	tx := r.db.WithContext(ctx)
+
+	usrDB := model.User{}
+	err := tx.Take(&usrDB, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("%s: %w", err, gokErrors.ErrUserNotFound)
+		}
+		return nil, err
+	}
+
+	return usrDB.DomainBind(), nil
+}

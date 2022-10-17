@@ -1,0 +1,44 @@
+syntax = "proto3";
+option go_package = "gok/proto";
+
+package gok;
+
+// import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service Storage {
+  rpc InitBranch(InitBranchRequest) returns(InitBranchResponse);
+//  rpc PushRecord(PushRecordRequest) returns(PushRecordResponse);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+message Record {
+  string uuid = 1;
+  uint64 head = 2;
+  string meta = 3;
+  google.protobuf.Timestamp createdAt = 4;
+}
+
+message Branch {
+  string name = 1;
+  uint64 head = 2;
+  uint32 userID = 3;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+message InitBranchRequest {
+}
+message InitBranchResponse {
+  Branch branch = 1;
+  string error = 2;
+}
+
+message PushRecordRequest {
+  Record base = 1;
+}
+message PushRecordResponse {
+  uint64 head = 1;
+  string error = 2;
+}
