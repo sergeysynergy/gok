@@ -24,11 +24,21 @@ func main() {
 	// Check for client version argument, if found: display and exit.
 	checkVersion()
 
+	// TODO: add config options
+	debug := true
+	authAddr := ":7000"
+	storageAddr := ":7001"
+
 	// Init logger.
-	lg = zapLogger.NewGokLogger(true)
+	lg = zapLogger.NewGokLogger(debug)
 
 	// Define structure with values and methods for arguments processing needed for GoK.
-	cli := cli.NewCLI(lg, helpMsg)
+	cli := cli.New(
+		lg,
+		helpMsg,
+		authAddr,
+		storageAddr,
+	)
 
 	// Perform the main amount of argument parsing and further operations.
 	cli.Parse()

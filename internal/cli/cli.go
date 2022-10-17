@@ -3,6 +3,7 @@ package cli
 import (
 	"flag"
 	"fmt"
+	gokClient "github.com/sergeysynergy/gok/internal/cli/client"
 	"go.uber.org/zap"
 	"os"
 )
@@ -18,12 +19,15 @@ type CLI struct {
 	user string
 	// All CLI arguments goes after flags arguments.
 	args []string
+	// gRPC client to access GoK API.
+	client *gokClient.Client
 }
 
-func NewCLI(logger *zap.Logger, helpMsg string) *CLI {
+func New(logger *zap.Logger, helpMsg, authAddr, storageAddr string) *CLI {
 	return &CLI{
 		lg:      logger,
 		helpMsg: helpMsg,
+		client:  gokClient.New(logger, authAddr, storageAddr),
 	}
 }
 
@@ -56,21 +60,25 @@ It could be USER environment value. Or you can redefine it using -u flag.`
 func (c *CLI) Parse() {
 	c.preCommandsCheck()
 
-	args := flag.Args()
-	if len(args) == 0 {
+	c.args = flag.Args()
+	if len(c.args) == 0 {
 		fmt.Println(c.helpMsg)
 		return
 	}
 
-	switch args[0] {
+	switch c.args[0] {
 	case "signin":
-		c.signin()
+		c.signIn()
 	case "init":
 	default:
 		fmt.Println(c.helpMsg)
 	}
 }
 
-func (c *CLI) signin() {
+func (c *CLI) signIn() {
+	if len(c.args) > 1 {
+		fmt.Println("Invalid argument: home and user enough to execute signin.")
+		os.Exit(0)
+	}
 	c.lg.Debug("SIGNIN!!!")
 }
