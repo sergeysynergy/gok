@@ -11,10 +11,3 @@ services:
       - "45432:5432"
     volumes :
       - ../../db-mysqlDB:/workdir
-
-  #  При необходимости, можно подключить легковесную админку для прямого подключения к БД
-  #  adminer:
-  #    container_name: gok_dev_adminer
-  #    image: adminer
-  #    ports:
-  #      - "33080:8080"
