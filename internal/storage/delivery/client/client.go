@@ -2,39 +2,26 @@ package client
 
 import (
 	"context"
-	"fmt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"log"
-
 	"github.com/sergeysynergy/gok/internal/entity"
 	pb "github.com/sergeysynergy/gok/proto"
 )
 
 type Client struct {
-	cl pb.AuthClient
+	auth pb.AuthClient
 }
 
-func (c Client) dial() {
-	conn, err := grpc.Dial(":7000", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Fatal(err)
+func New(auth pb.AuthClient) *Client {
+	return &Client{
+		auth: auth,
 	}
-	defer conn.Close()
-
-	c.cl = pb.NewAuthClient(conn)
 }
 
 func (c Client) GetUser(ctx context.Context, token string) (*entity.User, error) {
-	c.dial()
-
 	req := &pb.GetUserRequest{
 		Token: token,
 	}
 
-	fmt.Println("HERE HERE KITTY")
-	resp, err := c.cl.GetUser(ctx, req)
-	fmt.Println("HERE HERE KITTY")
+	resp, err := c.auth.GetUser(ctx, req)
 	if err != nil {
 		return nil, err
 	}

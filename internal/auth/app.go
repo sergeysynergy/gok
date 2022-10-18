@@ -127,12 +127,12 @@ func (a *App) runGraceDown() {
 
 func (a *App) start() {
 	go func() {
-		listen, err := net.Listen("tcp", a.cfg.Addr)
+		listen, err := net.Listen("tcp", a.cfg.AuthAddr)
 		if err != nil {
 			a.lg.Fatal(err.Error())
 		}
 
-		a.lg.Info(fmt.Sprintf("gRPC service server started at: %s", a.cfg.Addr))
+		a.lg.Info(fmt.Sprintf("gRPC service server started at: %s", a.cfg.AuthAddr))
 		if err = a.grpcServer.Serve(listen); err != nil {
 			a.lg.Fatal(err.Error())
 		}

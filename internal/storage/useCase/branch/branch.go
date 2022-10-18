@@ -40,12 +40,8 @@ func (u *UseCaseForBranch) AddGet(ctx context.Context, token string) (*entity.Br
 		}
 	}()
 
-	// TODO: move auth to interceptor
-	usr, err := u.GetUser(ctx, token)
+	usr, err := u.client.GetUser(ctx, token)
 	if err != nil {
-		return nil, err
-	}
-	if usr == nil {
 		err = gokErrors.ErrUserNotFound
 		return nil, err
 	}
@@ -62,26 +58,4 @@ func (u *UseCaseForBranch) AddGet(ctx context.Context, token string) (*entity.Br
 	u.lg.Debug(fmt.Sprintf("Got branch: ID %d; name %s; head %d", brn.ID, brn.Name, brn.Head))
 
 	return brn, nil
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Cross-service communication
-
-// GetUser retrieve user data from `Auth` server by token.
-func (u *UseCaseForBranch) GetUser(ctx context.Context, token string) (*entity.User, error) {
-	var err error
-	defer func() {
-		if err != nil {
-			errPrefix := "UseCaseForBranch.GetUser"
-			err = fmt.Errorf("%s - %w", errPrefix, err)
-			u.lg.Error(err.Error())
-		}
-	}()
-
-	usr, err := u.client.GetUser(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-
-	return usr, nil
 }

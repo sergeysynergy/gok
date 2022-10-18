@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc/credentials/insecure"
 	"gorm.io/driver/postgres"
 	"net"
 	"os"
@@ -17,7 +18,7 @@ import (
 	"github.com/sergeysynergy/gok/internal/consts"
 	"github.com/sergeysynergy/gok/internal/storage/data/model"
 	brnRepo "github.com/sergeysynergy/gok/internal/storage/data/repository/psql/branch"
-	brnClient "github.com/sergeysynergy/gok/internal/storage/delivery/client"
+	storageClient "github.com/sergeysynergy/gok/internal/storage/delivery/client"
 	ServerGRPC "github.com/sergeysynergy/gok/internal/storage/delivery/server"
 	brnUC "github.com/sergeysynergy/gok/internal/storage/useCase/branch"
 	pb "github.com/sergeysynergy/gok/proto"
@@ -31,6 +32,9 @@ type App struct {
 	dbOnce     *sync.Once
 	db         *gorm.DB
 	grpcServer *grpc.Server
+
+	authClient     pb.AuthClient
+	authClientConn *grpc.ClientConn
 
 	branch brnUC.UseCase
 }
@@ -48,6 +52,7 @@ func New(cfg *service.Conf, lg *zap.Logger) *App {
 
 func (a *App) init() {
 	a.dbConnect()
+	a.initAuthClient()
 	a.initUseCase()
 	a.initGRPCServer()
 }
@@ -73,10 +78,20 @@ func (a *App) dbConnect() {
 	})
 }
 
+func (a *App) initAuthClient() {
+	conn, err := grpc.Dial(a.cfg.AuthAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		a.lg.Fatal(err.Error())
+	}
+
+	a.authClient = pb.NewAuthClient(conn)
+	a.authClientConn = conn
+}
+
 func (a *App) initUseCase() {
 	branchRepo := brnRepo.New(a.db)
-	branchClient := brnClient.Client{}
-	a.branch = brnUC.New(a.lg, branchRepo, branchClient)
+	client := storageClient.New(a.authClient)
+	a.branch = brnUC.New(a.lg, branchRepo, client)
 }
 
 func (a *App) initGRPCServer() {
@@ -94,6 +109,9 @@ func (a *App) initGRPCServer() {
 func (a *App) runGraceDown() {
 	// Properly finish work with `zap` logger.
 	defer a.lg.Sync()
+
+	// Properly close connection with Auth service.
+	defer a.authClientConn.Close()
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
@@ -116,12 +134,12 @@ func (a *App) runGraceDown() {
 
 func (a *App) start() {
 	go func() {
-		listen, err := net.Listen("tcp", a.cfg.Addr)
+		listen, err := net.Listen("tcp", a.cfg.StorageAddr)
 		if err != nil {
 			a.lg.Fatal(err.Error())
 		}
 
-		a.lg.Info(fmt.Sprintf("gRPC service server started at: %s", a.cfg.Addr))
+		a.lg.Info(fmt.Sprintf("gRPC service server started at: %s", a.cfg.StorageAddr))
 		if err = a.grpcServer.Serve(listen); err != nil {
 			a.lg.Fatal(err.Error())
 		}

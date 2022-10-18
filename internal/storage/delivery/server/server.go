@@ -3,12 +3,11 @@ package server
 
 import (
 	"context"
-	"fmt"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/metadata"
-
+	"github.com/golang/protobuf/ptypes/empty"
 	brnUC "github.com/sergeysynergy/gok/internal/storage/useCase/branch"
 	pb "github.com/sergeysynergy/gok/proto"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/metadata"
 )
 
 // StorageServer implements API points to work with `Storage` service using gRPC protocol.
@@ -28,29 +27,27 @@ func New(
 	}
 }
 
-func (s StorageServer) InitBranch(ctx context.Context, _ *pb.InitBranchRequest) (*pb.InitBranchResponse, error) {
+func (s StorageServer) InitBranch(ctx context.Context, _ *empty.Empty) (*pb.InitBranchResponse, error) {
 	// Get token value from metadata.
 	var token string
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		values := md.Get("token")
 		if len(values) == 0 {
-			return nil, fmt.Errorf("failed to get token from metadata")
+			return &pb.InitBranchResponse{}, ErrAuthRequired
 		}
 		token = values[0]
 	}
 
-	// TODO: replace token with userID based on auth interceptor
 	brn, err := s.branch.AddGet(ctx, token)
 	if err != nil {
-		return nil, err
+		return &pb.InitBranchResponse{}, err
 	}
 
 	return &pb.InitBranchResponse{
 		Branch: &pb.Branch{
-			Name:   brn.Name,
-			Head:   brn.Head,
-			UserID: uint32(brn.UserID),
+			Name: brn.Name,
+			Head: brn.Head,
 		},
 	}, nil
 }

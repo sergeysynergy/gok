@@ -21,14 +21,15 @@ var (
 func main() {
 	var err error
 
-	cfg := service.New(":7000",
-		service.WithDSN("user=gok password=Passw0rd33 host=localhost port=45432 dbname=auth"),
+	cfg := service.New(
 		service.WithDebug(true),
+		service.WithDSN("user=gok password=Passw0rd33 host=localhost port=45432 dbname=auth"),
+		service.WithAuthAddr(":7000"),
 	)
 
 	flag.BoolVar(&cfg.Debug, "debug", cfg.Debug, "run service in debug mode")
-	flag.StringVar(&cfg.Addr, "a", cfg.Addr, "address to listen on")
-	flag.StringVar(&cfg.DSN, "d", cfg.DSN, "Postgres DSN")
+	flag.StringVar(&cfg.AuthAddr, "auth", cfg.AuthAddr, "address to start Auth service")
+	flag.StringVar(&cfg.DSN, "dsn", cfg.DSN, "Postgres DSN")
 	flag.StringVar(&cfg.TrustedSubnet, "ts", cfg.TrustedSubnet, "CIDR string")
 	flag.Parse()
 

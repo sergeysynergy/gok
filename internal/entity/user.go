@@ -35,3 +35,8 @@ func NewSignedUser(token string) *SignedUser {
 func (s *SignedUser) genKey() {
 	s.Key = uuid.New().String()
 }
+
+type CLIUser struct {
+	Login string
+	Home  string
+}

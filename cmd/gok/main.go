@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"go.uber.org/zap"
+	"log"
 	"os"
+	"strconv"
 
 	"github.com/sergeysynergy/gok/internal/cli"
 	"github.com/sergeysynergy/gok/pkg/utils"
@@ -13,32 +14,38 @@ import (
 var (
 	buildVersion string
 	buildDate    string
-	lg           *zap.Logger
+	debug        string
 )
 
 func main() {
+	// Init logger.
+	if debug == "" {
+		debug = "true"
+	}
+	dbg, err := strconv.ParseBool(debug)
+	if err != nil {
+		log.Fatalln("Failed to convert debug value -", err)
+	}
+	lg := zapLogger.NewGokLogger(dbg)
+
 	// Check for help argument, if found or no arguments at all: display and exit.
 	var helpMsg string
-	checkHelp(&helpMsg)
+	err = checkHelp(&helpMsg)
+	if err != nil {
+		lg.Debug(err.Error())
+		fmt.Println(helpMsg)
+		return
+	}
 
 	// Check for client version argument, if found: display and exit.
-	checkVersion()
-
-	// TODO: add config options
-	debug := true
-	authAddr := ":7000"
-	storageAddr := ":7001"
-
-	// Init logger.
-	lg = zapLogger.NewGokLogger(debug)
+	err = checkVersion()
+	if err != nil {
+		lg.Debug(err.Error())
+		return
+	}
 
 	// Define structure with values and methods for arguments processing needed for GoK.
-	cli := cli.New(
-		lg,
-		helpMsg,
-		authAddr,
-		storageAddr,
-	)
+	cli := cli.New(lg, helpMsg)
 
 	// Perform the main amount of argument parsing and further operations.
 	cli.Parse()
@@ -54,7 +61,7 @@ func argsContains(value string) int {
 	return -1
 }
 
-func checkHelp(msg *string) {
+func checkHelp(msg *string) error {
 	*msg = `
 usage: cli [--help] [--version] [-h] [-u] <command> [<args>]
 
@@ -67,29 +74,29 @@ Pre command arguments:
 These are common GoK commands used in various situations:
 
 start working with GoK
-	init	Create new or pull existing branch to store secret data
+	init	Create new or pull existing branch to store secret data`
 
-sync data with service
-	pull 	Fetch data from service to local database
-	push    Update remote data on service`
+	//sync data with service
+	//	pull 	Fetch data from service to local database
+	//	push    Update remote data on service`
 
 	// Checking if any argument given.
 	if len(os.Args) == 1 {
-		fmt.Println(msg)
-		os.Exit(0)
+		return fmt.Errorf("no arguments given")
 	}
 
 	pos := argsContains("--help")
 	if pos > 0 {
-		fmt.Println(msg)
-		os.Exit(0)
+		return fmt.Errorf("found help request")
 	}
+
+	return nil
 }
 
-func checkVersion() {
+func checkVersion() error {
 	pos := argsContains("--version")
 	if pos < 0 {
-		return
+		return nil
 	}
 
 	// Add build version and date of the client binary file:
@@ -97,5 +104,5 @@ func checkVersion() {
 	fmt.Printf("Build version: %s\n", utils.CheckNA(buildVersion))
 	fmt.Printf("Build date: %s\n", utils.CheckNA(buildDate))
 
-	os.Exit(0)
+	return fmt.Errorf("found version request")
 }
