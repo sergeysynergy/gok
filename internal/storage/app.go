@@ -16,11 +16,14 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/sergeysynergy/gok/internal/consts"
+	gokModel "github.com/sergeysynergy/gok/internal/data/model"
+	recRepo "github.com/sergeysynergy/gok/internal/data/repository/sql/record"
 	"github.com/sergeysynergy/gok/internal/storage/data/model"
 	brnRepo "github.com/sergeysynergy/gok/internal/storage/data/repository/psql/branch"
 	storageClient "github.com/sergeysynergy/gok/internal/storage/delivery/client"
 	ServerGRPC "github.com/sergeysynergy/gok/internal/storage/delivery/server"
 	brnUC "github.com/sergeysynergy/gok/internal/storage/useCase/branch"
+	recUC "github.com/sergeysynergy/gok/internal/storage/useCase/record"
 	pb "github.com/sergeysynergy/gok/proto"
 	"github.com/sergeysynergy/gok/tool/conf/service"
 )
@@ -37,6 +40,7 @@ type App struct {
 	authClientConn *grpc.ClientConn
 
 	branch brnUC.UseCase
+	record recUC.UseCase
 }
 
 func New(cfg *service.Conf, lg *zap.Logger) *App {
@@ -53,7 +57,7 @@ func New(cfg *service.Conf, lg *zap.Logger) *App {
 func (a *App) init() {
 	a.dbConnect()
 	a.initAuthClient()
-	a.initUseCase()
+	a.initUseCases()
 	a.initGRPCServer()
 }
 
@@ -68,7 +72,7 @@ func (a *App) dbConnect() {
 		}
 
 		// Create and migrate database tables.
-		err = db.AutoMigrate(&model.Branch{})
+		err = db.AutoMigrate(&model.Branch{}, &gokModel.Record{})
 		if err != nil {
 			a.lg.Fatal(fmt.Sprintf("Auto migration has failed: %s", err))
 		}
@@ -88,20 +92,23 @@ func (a *App) initAuthClient() {
 	a.authClientConn = conn
 }
 
-func (a *App) initUseCase() {
+func (a *App) initUseCases() {
+	recordRepo := recRepo.New(a.db)
+	a.record = recUC.New(a.lg, recordRepo)
+
 	branchRepo := brnRepo.New(a.db)
 	client := storageClient.New(a.authClient)
-	a.branch = brnUC.New(a.lg, branchRepo, client)
+	a.branch = brnUC.New(a.lg, branchRepo, client, a.record)
 }
 
 func (a *App) initGRPCServer() {
 	// Create gRPC service server with interceptors.
 	a.grpcServer = grpc.NewServer(
-	//grpc.UnaryInterceptor(ServerGRPC.UnaryEncrypt),
+		//grpc.UnaryInterceptor(ServerGRPC.UnaryEncrypt),
 	)
 
 	// Register our service with realization for protobuf methods.
-	srv := ServerGRPC.New(a.lg, a.branch)
+	srv := ServerGRPC.New(a.lg, a.branch, a.record)
 	pb.RegisterStorageServer(a.grpcServer, srv)
 }
 

@@ -74,11 +74,15 @@ Pre command arguments:
 These are common GoK commands used in various situations:
 
 start working with GoK
-	init	Create new or pull existing branch to store secret data`
+	init	Create new or pull existing branch to store secret data
 
-	//sync data with service
-	//	pull 	Fetch data from service to local database
-	//	push    Update remote data on service`
+	desc add		Create new description record
+	desc ls			List all description records
+	desc set [ID]	Update description record by given ID
+
+	sync data with service
+		pull 	Fetch data from service to local database
+		push    Update remote data on service`
 
 	// Checking if any argument given.
 	if len(os.Args) == 1 {

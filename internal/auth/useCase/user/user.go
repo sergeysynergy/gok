@@ -54,6 +54,32 @@ func (u *UseCaseForUser) SignIn(ctx context.Context, usr *entity.User) (*entity.
 	return sgdUser, nil
 }
 
+func (u *UseCaseForUser) Login(ctx context.Context, usr *entity.User) (*entity.SignedUser, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			errPrefix := "UseCaseForUser.Login"
+			err = fmt.Errorf("%s - %w", errPrefix, err)
+			u.lg.Error(err.Error())
+		}
+	}()
+
+	usr, err = u.repo.Find(ctx, usr.Login)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := u.session.Add(ctx, usr.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	sgdUser := entity.NewSignedUser(*token)
+
+	u.lg.Debug(fmt.Sprintf("new login session for user ID %d has been created", usr.ID))
+	return sgdUser, nil
+}
+
 func (u *UseCaseForUser) Get(ctx context.Context, token string) (*entity.User, error) {
 	var err error
 	defer func() {

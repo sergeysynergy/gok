@@ -7,10 +7,7 @@ package gok;
 
 service Auth {
   rpc SignIn (SignInRequest) returns (SignInResponse);
-//  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
-//  rpc GetLocation(GetLocationRequest) returns (GetLocationResponse);
-//  rpc SetLocation(SetLocationRequest) returns (google.protobuf.Empty);
-//  rpc DelLocation(DelLocationRequest) returns (google.protobuf.Empty);
+  rpc Login (LoginRequest) returns (LoginResponse);
 
   // Internal methods for cross-service communication.
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
@@ -20,33 +17,32 @@ service Auth {
 
 message User {
   int32 ID = 1;
-  string Login = 2;
+  string login = 2;
 }
 
 message UserForAdd {
-  string Login = 2;
+  string login = 2;
 }
 
 message SignedUser {
-  string Token = 1;
-  string Key = 2;
+  string token = 1;
+  string key = 2;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 message SignInRequest {
-  UserForAdd User = 1;
+  UserForAdd user = 1;
 }
 message SignInResponse {
-  SignedUser User = 1;
+  SignedUser user = 1;
 }
 
-message ListUsersRequest {
-  uint32 offset = 1;
-  uint32 limit = 2;
+message LoginRequest {
+  UserForAdd user = 1;
 }
-message ListUsersResponse {
-  repeated User Users = 1;
+message LoginResponse {
+  SignedUser user = 1;
 }
 
 message GetUserRequest {

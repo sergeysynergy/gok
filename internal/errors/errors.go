@@ -15,4 +15,12 @@ var (
 	ErrUserZeroID          = errors.New("got zero user id")
 
 	ErrSessionNotFound = errors.New("session not found")
+
+	ErrRecordUnknown       = errors.New("record unknown error")
+	ErrRecordNotFound      = errors.New("record not found")
+	ErrRecordAlreadyExists = errors.New("record already exists")
+
+	ErrPushUnknown = errors.New("push unknown error")
+
+	ErrLocalBranchBehind = errors.New("local branch in behind server")
 )

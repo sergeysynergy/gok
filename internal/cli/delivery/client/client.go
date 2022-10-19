@@ -7,15 +7,15 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sergeysynergy/gok/internal/entity"
 	gokErrors "github.com/sergeysynergy/gok/internal/errors"
+	pb "github.com/sergeysynergy/gok/proto"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"sync"
-
-	pb "github.com/sergeysynergy/gok/proto"
 )
 
 type Client struct {
@@ -82,6 +82,33 @@ func (c *Client) SignIn(ctx context.Context, usr *entity.User) (*entity.SignedUs
 	}, nil
 }
 
+func (c *Client) Login(ctx context.Context, usr *entity.User) (*entity.SignedUser, error) {
+	auth, conn := c.getAuthConnect()
+	defer conn.Close()
+
+	resp, err := auth.Login(ctx, &pb.LoginRequest{
+		User: &pb.UserForAdd{
+			Login: usr.Login,
+		},
+	})
+	if err != nil {
+		if e, ok := status.FromError(err); ok {
+			if e.Code() == codes.NotFound {
+				err = fmt.Errorf("%s - %w", e.Message(), gokErrors.ErrUserNotFound)
+			} else {
+				err = fmt.Errorf("%s - %s", e.Code(), e.Message())
+			}
+		}
+		c.lg.Debug("Failed to parse error: " + err.Error())
+		return nil, err
+	}
+
+	return &entity.SignedUser{
+		Token: resp.User.Token,
+		Key:   resp.User.Key,
+	}, nil
+}
+
 func (c *Client) Init(ctx context.Context, token string) (*entity.Branch, error) {
 	storage, conn := c.getStorageConnect()
 	defer conn.Close()
@@ -101,6 +128,51 @@ func (c *Client) Init(ctx context.Context, token string) (*entity.Branch, error)
 		}
 		c.lg.Debug("Failed to parse error: " + err.Error())
 		return nil, err
+	}
+
+	return &entity.Branch{
+		Name: resp.Branch.Name,
+		Head: resp.Branch.Head,
+	}, nil
+}
+
+func (c *Client) Push(ctx context.Context, token string, brn *entity.Branch, records []*entity.Record) (*entity.Branch, error) {
+	storage, conn := c.getStorageConnect()
+	defer conn.Close()
+
+	// Add token value to metadata using context.
+	md := metadata.New(map[string]string{"token": token})
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	reqPB := make([]*pb.Record, 0, len(records))
+	for _, v := range records {
+		reqPB = append(reqPB, &pb.Record{
+			Id:          string(v.ID),
+			Head:        v.Head,
+			Branch:      v.Branch,
+			Description: string(v.Description),
+			Type:        string(v.Type),
+			UpdatedAt:   timestamppb.New(v.UpdatedAt),
+		})
+	}
+
+	resp, err := storage.Push(ctx, &pb.PushRequest{
+		Branch: &pb.Branch{
+			Name: brn.Name,
+			Head: brn.Head,
+		},
+		Records: reqPB,
+	})
+	if err != nil {
+		if e, ok := status.FromError(err); ok {
+			if e.Code() == codes.Unauthenticated {
+				err = fmt.Errorf("%s - %w", e.Message(), gokErrors.ErrAuthRequired)
+			} else {
+				err = fmt.Errorf("%s - %s", e.Code(), e.Message())
+			}
+		}
+		c.lg.Debug("Failed to parse error: " + err.Error())
+		return &entity.Branch{}, err
 	}
 
 	return &entity.Branch{

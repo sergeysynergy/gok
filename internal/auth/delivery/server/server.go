@@ -55,6 +55,29 @@ func (s AuthServer) SignIn(ctx context.Context, in *pb.SignInRequest) (*pb.SignI
 	}, nil
 }
 
+// Login already signed users.
+func (s AuthServer) Login(ctx context.Context, in *pb.LoginRequest) (*pb.LoginResponse, error) {
+	usr := &entity.User{
+		Login: in.User.Login,
+	}
+	fmt.Println("::", in.User)
+
+	signedUsr, err := s.user.Login(ctx, usr)
+	if err != nil {
+		if errors.Is(err, gokErrors.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("%w - %s", ErrUserUnknownError, err)
+	}
+
+	return &pb.LoginResponse{
+		User: &pb.SignedUser{
+			Token: signedUsr.Token,
+			Key:   signedUsr.Key,
+		},
+	}, nil
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Internal methods for cross-service communication.
 

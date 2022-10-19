@@ -6,12 +6,16 @@ import (
 	"flag"
 	"fmt"
 	"go.uber.org/zap"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"io/ioutil"
 	"os"
 	"sync"
 
-	gokClient "github.com/sergeysynergy/gok/internal/cli/client"
+	gokClient "github.com/sergeysynergy/gok/internal/cli/delivery/client"
 	gokUC "github.com/sergeysynergy/gok/internal/cli/useCase"
+	"github.com/sergeysynergy/gok/internal/data/model"
+	recRepo "github.com/sergeysynergy/gok/internal/data/repository/sql/record"
 	"github.com/sergeysynergy/gok/internal/entity"
 	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 )
@@ -45,7 +49,9 @@ func NewConf(filename string) *Config {
 	}
 
 	// Trying to read config file.
-	cfg.Read()
+	if err := cfg.Read(); err != nil {
+		fmt.Println("Failed to read config file -", err.Error())
+	}
 
 	return cfg
 }
@@ -57,7 +63,10 @@ func (c *Config) Write() error {
 	defer c.mu.Unlock()
 
 	jsonString, _ := json.Marshal(c)
-	ioutil.WriteFile(c.filename, jsonString, os.ModePerm)
+	err := ioutil.WriteFile(c.filename, jsonString, os.ModePerm)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -105,12 +114,16 @@ type CLI struct {
 	client *gokClient.Client
 	// Use cases to work with GoK API.
 	uc gokUC.UseCase
+	// Database creds.
+	dbOnce *sync.Once
+	db     *gorm.DB
 }
 
 func New(logger *zap.Logger, helpMsg string) *CLI {
 	cli := &CLI{
 		lg:      logger,
 		helpMsg: helpMsg,
+		dbOnce:  &sync.Once{},
 	}
 	cli.initCLI()
 
@@ -122,13 +135,27 @@ func (c *CLI) initCLI() {
 		c.lg.Fatal(err.Error())
 	}
 
+	// Create user directory.
+	dir := c.home + "/.gok"
+	if err := os.Mkdir(c.home+"/.gok", os.ModePerm); err != nil {
+		if err.Error() != "mkdir "+dir+": file exists" {
+			c.lg.Fatal(err.Error())
+			return
+		}
+	}
+	dir = c.home + "/.gok/" + c.user
+	if err := os.Mkdir(dir, os.ModePerm); err != nil {
+		if err.Error() != "mkdir "+dir+": file exists" {
+			c.lg.Fatal(err.Error())
+			return
+		}
+	}
+
 	// Init GoK user config or read existing one from file.
 	filename := c.home + "/.gok/config.json"
 	c.cfg = NewConf(filename)
 
-	// Create user directory.
-	os.Mkdir(c.home+"/.gok/"+c.user, os.ModePerm)
-
+	c.dbConnect()
 	c.newUseCase()
 }
 
@@ -160,9 +187,29 @@ It could be USER environment value. Or you can redefine it using -u flag.`
 	return nil
 }
 
+func (c *CLI) dbConnect() {
+	c.dbOnce.Do(func() {
+		dbPath := fmt.Sprintf("%s/.gok/%s/default.db", c.home, c.user)
+		db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+		if err != nil {
+			c.lg.Fatal(fmt.Sprintf("connection to SQLite failed: %s", err))
+		}
+
+		// Create and migrate database tables.
+		err = db.AutoMigrate(&model.Record{})
+		if err != nil {
+			c.lg.Fatal(fmt.Sprintf("auto migration has failed: %s", err))
+		}
+
+		c.db = db
+		c.lg.Info("established connection with DB")
+	})
+}
+
 func (c *CLI) newUseCase() {
-	gokClient := gokClient.New(c.lg, c.cfg.AuthAddr, c.cfg.StorageAddr)
-	c.uc = gokUC.New(c.lg, gokClient)
+	client := gokClient.New(c.lg, c.cfg.AuthAddr, c.cfg.StorageAddr)
+	repo := recRepo.New(c.db)
+	c.uc = gokUC.New(c.lg, repo, client)
 }
 
 // Parse method to process main CLI commands: something like router.
@@ -176,8 +223,14 @@ func (c *CLI) Parse() {
 	switch c.args[0] {
 	case "signin":
 		c.signIn()
+	case "login":
+		c.login()
 	case "init":
 		c.init()
+	case "desc":
+		c.desc()
+	case "push":
+		c.push()
 	default:
 		fmt.Println(c.helpMsg)
 	}
@@ -187,6 +240,7 @@ func (c *CLI) Parse() {
 ///   Commands section   ///////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Method signIn create new user record locally and at the server side.
 func (c *CLI) signIn() {
 	if len(c.args) > 1 {
 		fmt.Println("Invalid argument: home and user enough to execute signin.")
@@ -210,11 +264,48 @@ func (c *CLI) signIn() {
 
 	c.cfg.Token = signedUsr.Token
 	c.cfg.Key = signedUsr.Key
-	c.cfg.Write()
+	if err = c.cfg.Write(); err != nil {
+		c.lg.Error(err.Error())
+		return
+	}
 
 	fmt.Println("New user has been successfully registered. Now init new branch to store your secrets.")
 }
 
+// Method login get user token for auth process.
+func (c *CLI) login() {
+	if len(c.args) > 1 {
+		fmt.Println("Invalid arguments for login.")
+		return
+	}
+
+	usr := &entity.CLIUser{
+		Login: c.user,
+		Home:  c.home,
+	}
+
+	signedUsr, err := c.uc.Login(usr)
+	if err != nil {
+		c.lg.Error(err.Error())
+		if errors.Is(err, gokErrors.ErrUserNotFound) {
+			fmt.Println("User not found: signin first.")
+			return
+		}
+		fmt.Println("Login failed, try to signin first.")
+		return
+	}
+
+	c.cfg.Token = signedUsr.Token
+	c.cfg.Key = signedUsr.Key
+	if err = c.cfg.Write(); err != nil {
+		c.lg.Error(err.Error())
+		return
+	}
+
+	fmt.Println("Login successful. Now init new branch to store your secrets.")
+}
+
+// Method init add or get branch info and store it locally in config file.
 func (c *CLI) init() {
 	if len(c.args) > 1 {
 		fmt.Println("Invalid argument: home and user enough to execute init... so far.")
@@ -238,7 +329,53 @@ func (c *CLI) init() {
 		// TODO: add git pull command
 	}
 
-	c.cfg.Write()
+	if err = c.cfg.Write(); err != nil {
+		c.lg.Error(err.Error())
+		return
+	}
 
-	fmt.Println("New branch has been successfully initiated. Now it's time to add some secrets!")
+	fmt.Println("Branch `" + brn.Name + "` has been successfully initiated. Now it's time to add some secrets!")
+}
+
+func (c *CLI) push() {
+	if len(c.args) > 1 {
+		fmt.Println("Too many arguments for push.")
+		return
+	}
+
+	brn, err := c.uc.Push(c.cfg.Token, c.cfg.Branch, c.cfg.LocalHead)
+	if err != nil {
+		if errors.Is(err, gokErrors.ErrLocalBranchBehind) {
+			fmt.Println("Your local branch is behind server: please make pull first to update data.")
+			return
+		}
+		if errors.Is(err, gokErrors.ErrRecordNotFound) {
+			fmt.Println("No new records for push.")
+			return
+		}
+		if errors.Is(err, gokErrors.ErrAuthRequired) {
+			fmt.Println("Authentication required: try to signin or login.")
+			return
+		}
+
+		c.lg.Error(err.Error())
+		return
+	}
+	if brn == nil {
+		err = gokErrors.ErrPushUnknown
+		c.lg.Error(err.Error())
+		fmt.Println("Failed to push -", err)
+		return
+	}
+
+	if brn.Head > c.cfg.LocalHead && brn.Name == c.cfg.Branch {
+		c.cfg.LocalHead = brn.Head
+		if err = c.cfg.Write(); err != nil {
+			c.lg.Error(err.Error())
+			return
+		}
+	}
+
+	c.lg.Debug(fmt.Sprintf("local branch header: %d", c.cfg.LocalHead))
+	fmt.Println("Push successful.")
 }

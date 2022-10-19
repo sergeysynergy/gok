@@ -39,3 +39,38 @@ func (r *Repo) CreateRead(ctx context.Context, brn *entity.Branch) (branch *enti
 
 	return brnDB.DomainBind(), nil
 }
+
+func (r *Repo) Read(ctx context.Context, brn *entity.Branch) (branch *entity.Branch, err error) {
+	tx := r.db.WithContext(ctx)
+
+	brnDB := model.Branch{
+		UserID: uint32(brn.UserID),
+		Name:   brn.Name,
+	}
+
+	result := tx.Where("user_id = ? AND name = ?", brn.UserID, brn.Name).Take(&brnDB)
+	err = result.Error
+	if err != nil {
+		return nil, err
+	}
+
+	return brnDB.DomainBind(), nil
+}
+
+func (r *Repo) Update(ctx context.Context, brn *entity.Branch) error {
+	tx := r.db.WithContext(ctx)
+
+	brnDB := model.Branch{
+		UserID:     uint32(brn.UserID),
+		Name:       brn.Name,
+		ServerHead: brn.Head,
+	}
+
+	result := tx.Where("user_id = ? AND name = ?", brn.UserID, brn.Name).Updates(&brnDB)
+	err := result.Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

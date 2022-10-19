@@ -37,6 +37,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/klauspost/compress v1.11.7 // indirect
+	github.com/mattn/go-sqlite3 v1.14.15 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rs/cors v1.7.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
@@ -46,5 +47,6 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/genproto v0.0.0-20210126160654-44e461bb6506 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gorm.io/driver/sqlite v1.4.3 // indirect
 	nhooyr.io/websocket v1.8.6 // indirect
 )

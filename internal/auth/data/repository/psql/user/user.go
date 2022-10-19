@@ -62,3 +62,18 @@ func (r *Repo) Read(ctx context.Context, id entity.UserID) (*entity.User, error)
 
 	return usrDB.DomainBind(), nil
 }
+
+func (r *Repo) Find(ctx context.Context, login string) (*entity.User, error) {
+	tx := r.db.WithContext(ctx)
+
+	usrDB := model.User{}
+	err := tx.Where("login = ?", login).Take(&usrDB).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("%s: %w", err, gokErrors.ErrUserNotFound)
+		}
+		return nil, err
+	}
+
+	return usrDB.DomainBind(), nil
+}
