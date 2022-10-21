@@ -42,3 +42,21 @@ func (u *UseCaseForRecord) BulkCreateUpdate(ctx context.Context, recs []*entity.
 
 	return nil
 }
+
+func (u *UseCaseForRecord) HeadList(ctx context.Context, head uint64) ([]*entity.Record, error) {
+	var err error
+	defer func() {
+		if err != nil {
+			errPrefix := "UseCaseForRecord.BulkCreateUpdate"
+			err = fmt.Errorf("%s - %w", errPrefix, err)
+			u.lg.Error(err.Error())
+		}
+	}()
+
+	recs, err := u.repo.HeadList(ctx, head)
+	if err != nil {
+		return nil, err
+	}
+
+	return recs, nil
+}

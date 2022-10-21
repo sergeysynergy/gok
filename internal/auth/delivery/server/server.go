@@ -88,20 +88,6 @@ func (s AuthServer) cidrCheck() error {
 
 	// TODO: Add CIDR check
 
-	//// Распарсим IP клиента.
-	//ipStr := r.Header.Get("X-Real-IP")
-	//ip := net.ParseIP(ipStr)
-	//if ip == nil {
-	//	raiseJSONedError(w, r, "failed to parse client IP", http.StatusForbidden)
-	//	return
-	//}
-
-	//// проверим, входит ли ip клиента в доверенную подсеть.
-	//if !trustedsubnet.contains(ip) {
-	//	raisejsonederror(w, r, "client ip not match trusted subnet", http.statusforbidden)
-	//	return
-	//}
-
 	return nil
 }
 
@@ -109,13 +95,13 @@ func (s AuthServer) cidrCheck() error {
 func (s AuthServer) GetUser(ctx context.Context, in *pb.GetUserRequest) (*pb.GetUserResponse, error) {
 	err := s.cidrCheck()
 	if err != nil {
-		return &pb.GetUserResponse{}, ErrAuthRequired
+		return nil, ErrAuthRequired
 	}
 
 	usr, err := s.user.Get(ctx, in.Token)
 	if err != nil {
 		if errors.Is(err, gokErrors.ErrSessionNotFound) {
-			return &pb.GetUserResponse{}, ErrAuthRequired
+			return nil, ErrAuthRequired
 		}
 		return nil, err
 	}

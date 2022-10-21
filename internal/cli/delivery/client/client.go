@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/golang/protobuf/ptypes/empty"
+	gokConsts "github.com/sergeysynergy/gok/internal/consts"
 	"github.com/sergeysynergy/gok/internal/entity"
 	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 	pb "github.com/sergeysynergy/gok/proto"
@@ -172,11 +173,57 @@ func (c *Client) Push(ctx context.Context, token string, brn *entity.Branch, rec
 			}
 		}
 		c.lg.Debug("Failed to parse error: " + err.Error())
-		return &entity.Branch{}, err
+		return nil, err
 	}
 
 	return &entity.Branch{
 		Name: resp.Branch.Name,
 		Head: resp.Branch.Head,
 	}, nil
+}
+
+func (c *Client) Pull(ctx context.Context, token string, brn *entity.Branch) (*entity.Branch, []*entity.Record, error) {
+	c.lg.Debug("doing GokDeliveryClient.Pull")
+
+	storage, conn := c.getStorageConnect()
+	defer conn.Close()
+
+	// Add token value to metadata using context.
+	md := metadata.New(map[string]string{"token": token})
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	resp, err := storage.Pull(ctx, &pb.PullRequest{
+		Branch: &pb.Branch{
+			Name: brn.Name,
+			Head: brn.Head,
+		},
+	})
+	if err != nil {
+		if e, ok := status.FromError(err); ok {
+			if e.Code() == codes.Unauthenticated {
+				err = fmt.Errorf("%s - %w", e.Message(), gokErrors.ErrAuthRequired)
+			} else {
+				err = fmt.Errorf("%s - %s", e.Code(), e.Message())
+			}
+		}
+		c.lg.Debug("Failed to parse error: " + err.Error())
+		return nil, nil, err
+	}
+
+	recs := make([]*entity.Record, 0, len(resp.Records))
+	for _, v := range resp.Records {
+		recs = append(recs, &entity.Record{
+			ID:          entity.RecordID(v.Id),
+			Head:        v.Head,
+			Branch:      v.Branch,
+			Description: entity.Description(v.Description),
+			Type:        gokConsts.RecordType(v.Type),
+			UpdatedAt:   v.UpdatedAt.AsTime(),
+		})
+	}
+
+	return &entity.Branch{
+		Name: resp.Branch.Name,
+		Head: resp.Branch.Head,
+	}, recs, nil
 }

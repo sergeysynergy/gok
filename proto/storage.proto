@@ -9,6 +9,7 @@ import "google/protobuf/timestamp.proto";
 service Storage {
   rpc InitBranch(google.protobuf.Empty) returns(InitBranchResponse);
   rpc Push(PushRequest) returns(PushResponse);
+  rpc Pull(PullRequest) returns(PullResponse);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,4 +42,12 @@ message PushRequest {
 message PushResponse {
   Branch branch = 1;
   string error = 2;
+}
+
+message PullRequest {
+  Branch branch = 1;
+}
+message PullResponse {
+  Branch branch = 1;
+  repeated Record records = 2;
 }

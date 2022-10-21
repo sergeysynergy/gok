@@ -231,6 +231,8 @@ func (c *CLI) Parse() {
 		c.desc()
 	case "push":
 		c.push()
+	case "pull":
+		c.pull()
 	default:
 		fmt.Println(c.helpMsg)
 	}
@@ -362,12 +364,13 @@ func (c *CLI) push() {
 		return
 	}
 	if brn == nil {
-		err = gokErrors.ErrPushUnknown
+		err = gokErrors.ErrPushUnknownError
 		c.lg.Error(err.Error())
 		fmt.Println("Failed to push -", err)
 		return
 	}
 
+	// Update local branch head to fit server.
 	if brn.Head > c.cfg.LocalHead && brn.Name == c.cfg.Branch {
 		c.cfg.LocalHead = brn.Head
 		if err = c.cfg.Write(); err != nil {
@@ -378,4 +381,44 @@ func (c *CLI) push() {
 
 	c.lg.Debug(fmt.Sprintf("local branch header: %d", c.cfg.LocalHead))
 	fmt.Println("Push successful.")
+}
+
+func (c *CLI) pull() {
+	if len(c.args) > 1 {
+		fmt.Println("Too many arguments for pull.")
+		return
+	}
+
+	freshBrn, err := c.uc.Pull(c.cfg.Token, c.cfg.Branch, c.cfg.LocalHead)
+	if err != nil {
+		if errors.Is(err, gokErrors.ErrRecordNotFound) {
+			fmt.Println("No new records for pull.")
+			return
+		}
+		if errors.Is(err, gokErrors.ErrAuthRequired) {
+			fmt.Println("Authentication required: try to signin or login.")
+			return
+		}
+
+		c.lg.Error(err.Error())
+		return
+	}
+	if freshBrn == nil {
+		err = gokErrors.ErrPullUnknownError
+		c.lg.Error(err.Error())
+		fmt.Println("Failed to pull -", err)
+		return
+	}
+
+	// Update local branch head to fit server.
+	//if freshBrn.Head > c.cfg.LocalHead && freshBrn.Name == c.cfg.Branch {
+	//	c.cfg.LocalHead = freshBrn.Head
+	//	if err = c.cfg.Write(); err != nil {
+	//		c.lg.Error(err.Error())
+	//		return
+	//	}
+	//}
+
+	c.lg.Debug(fmt.Sprintf("local branch header: %d", c.cfg.LocalHead))
+	fmt.Println("Pull successful.")
 }

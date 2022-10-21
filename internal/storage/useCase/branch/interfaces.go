@@ -23,6 +23,8 @@ type UseCase interface {
 	Set(ctx context.Context, token string, brn *entity.Branch) error
 	// Push updates form local branch to server.
 	Push(ctx context.Context, token string, brn *entity.Branch, records []*entity.Record) (*entity.Branch, error)
+	// Pull get records with more than local head for local update process.
+	Pull(ctx context.Context, token string, brn *entity.Branch) (*entity.Branch, []*entity.Record, error)
 }
 
 // Client defines contract for cross-service communication.

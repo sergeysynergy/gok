@@ -106,7 +106,7 @@ func (u *GokUseCase) Push(token string, branch string, head uint64) (*entity.Bra
 		}
 	}()
 
-	records, err := u.repo.ListForPush(u.ctx, head)
+	records, err := u.repo.HeadList(u.ctx, head)
 	if err != nil {
 		return nil, err
 	}
@@ -122,4 +122,36 @@ func (u *GokUseCase) Push(token string, branch string, head uint64) (*entity.Bra
 	}
 
 	return brn, nil
+}
+
+func (u *GokUseCase) Pull(token string, branch string, head uint64) (*entity.Branch, error) {
+	u.lg.Debug("doing GokUseCase.Pull")
+	var err error
+	defer func() {
+		prefix := "GokUseCase.Pull"
+		if err != nil {
+			err = fmt.Errorf("%s - %w", prefix, err)
+			u.lg.Error(err.Error())
+		}
+	}()
+
+	brn := &entity.Branch{
+		Name: branch,
+		Head: head,
+	}
+
+	freshBrn, recs, err := u.client.Pull(u.ctx, token, brn)
+	if err != nil {
+		return nil, err
+	}
+	u.repo.BulkCreateUpdate(u.ctx, recs)
+
+	// TODO: add all merge magic logic here
+
+	_, err = u.repo.HeadList(u.ctx, head)
+	if err != nil {
+		return nil, err
+	}
+
+	return freshBrn, nil
 }

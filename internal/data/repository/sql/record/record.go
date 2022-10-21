@@ -88,7 +88,7 @@ func (r *Repo) Update(ctx context.Context, rec *entity.Record) error {
 	return nil
 }
 
-func (r *Repo) List(ctx context.Context, recType gokConsts.RecordType) ([]*entity.Record, error) {
+func (r *Repo) TypeList(ctx context.Context, recType gokConsts.RecordType) ([]*entity.Record, error) {
 	tx := r.db.WithContext(ctx)
 
 	listDB := make([]*model.Record, 0)
@@ -106,11 +106,12 @@ func (r *Repo) List(ctx context.Context, recType gokConsts.RecordType) ([]*entit
 	return list, nil
 }
 
-func (r *Repo) ListForPush(ctx context.Context, localHead uint64) ([]*entity.Record, error) {
+// HeadList return all records where record head more than given head.
+func (r *Repo) HeadList(ctx context.Context, head uint64) ([]*entity.Record, error) {
 	tx := r.db.WithContext(ctx)
 
 	listDB := make([]*model.Record, 0)
-	result := tx.Where("head > ?", localHead).Find(&listDB)
+	result := tx.Where("head > ?", head).Find(&listDB)
 	err := result.Error
 	if err != nil {
 		return nil, err
@@ -129,24 +130,30 @@ func (r *Repo) ListForPush(ctx context.Context, localHead uint64) ([]*entity.Rec
 }
 
 func (r *Repo) BulkCreateUpdate(ctx context.Context, recs []*entity.Record) error {
-	tx := r.db.WithContext(ctx)
-	for _, v := range recs {
-		recDB := model.Record{
-			ID:          string(v.ID),
-			Head:        v.Head,
-			Branch:      v.Branch,
-			Description: string(v.Description),
-			Type:        string(v.Type),
-			UpdatedAt:   v.UpdatedAt,
-		}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, v := range recs {
+			recDB := model.Record{
+				ID:          string(v.ID),
+				Head:        v.Head,
+				Branch:      v.Branch,
+				Description: string(v.Description),
+				Type:        string(v.Type),
+				UpdatedAt:   v.UpdatedAt,
+			}
 
-		err := tx.Create(&recDB).Error
-		if err != nil {
-			err = tx.Model(&recDB).Updates(&recDB).Error
+			err := tx.Create(&recDB).Error
 			if err != nil {
-				return err
+				err = tx.Model(&recDB).Updates(&recDB).Error
+				if err != nil {
+					return err
+				}
 			}
 		}
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil

@@ -55,7 +55,7 @@ func (u *GokUseCase) DescList() ([]*entity.Record, error) {
 		}
 	}()
 
-	list, err := u.repo.List(u.ctx, gokConsts.DESC)
+	list, err := u.repo.TypeList(u.ctx, gokConsts.DESC)
 	if err != nil {
 		return nil, err
 	}
