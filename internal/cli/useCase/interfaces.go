@@ -17,6 +17,8 @@ type Repo interface {
 	HeadList(ctx context.Context, head uint64) ([]*entity.Record, error)
 	// BulkCreateUpdate records.
 	BulkCreateUpdate(context.Context, []*entity.Record) error
+	// ByIDsList return all records from given IDs slice.
+	ByIDsList(ctx context.Context, ids []string) ([]*entity.Record, error)
 }
 
 type Client interface {
@@ -32,7 +34,7 @@ type UseCase interface {
 	Login(*entity.CLIUser) (*entity.SignedUser, error)
 	Init(token string) (*entity.Branch, error)
 	Push(token string, branch string, head uint64) (*entity.Branch, error)
-	Pull(token string, branch string, head uint64) (*entity.Branch, error)
+	Pull(*entity.CLIConf, *entity.Branch) (*entity.Branch, error)
 
 	DescAdd(*entity.Record) error
 	DescSet(*entity.Record) error

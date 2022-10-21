@@ -1,14 +1,12 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"io/ioutil"
 	"os"
 	"sync"
 
@@ -20,90 +18,13 @@ import (
 	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 )
 
-// Config for GoK CLI:
-// AuthAddr - Auth service gRPC API address;
-// StorageAddr - Storage service gRPC API address;
-// Token - user auth token;
-// Key - user key used to encrypt data.
-type Config struct {
-	mu       sync.RWMutex
-	filename string
-
-	AuthAddr    string `json:"auth_addr"`
-	StorageAddr string `json:"storage_addr"`
-	Token       string `json:"token"`
-	Key         string `json:"key"`
-	Branch      string `json:"branch"`
-	LocalHead   uint64 `json:"head"`
-}
-
-func NewConf(filename string) *Config {
-	const (
-		defaultAuthAddr    = ":7000"
-		defaultStorageAddr = ":7001"
-	)
-	cfg := &Config{
-		AuthAddr:    defaultAuthAddr,
-		StorageAddr: defaultStorageAddr,
-		filename:    filename,
-	}
-
-	// Trying to read config file.
-	if err := cfg.Read(); err != nil {
-		fmt.Println("Failed to read config file -", err.Error())
-	}
-
-	return cfg
-}
-
-// Write config struct to json file.
-func (c *Config) Write() error {
-	// TODO: rewrite config saving service addresses.
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	jsonString, _ := json.Marshal(c)
-	err := ioutil.WriteFile(c.filename, jsonString, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Read config struct from json file.
-func (c *Config) Read() error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	data, err := os.ReadFile(c.filename)
-	if err != nil {
-		return fmt.Errorf("error when opening file: %w", err)
-	}
-
-	var cfg Config
-	err = json.Unmarshal(data, &cfg)
-	if err != nil {
-		return fmt.Errorf("error during Unmarshal(): %w", err)
-	}
-
-	c.AuthAddr = cfg.AuthAddr
-	c.StorageAddr = cfg.StorageAddr
-	c.Token = cfg.Token
-	c.Key = cfg.Key
-	c.Branch = cfg.Branch
-	c.LocalHead = cfg.LocalHead
-
-	return nil
-}
-
 // CLI contains argument values and methods for command line processing.
 type CLI struct {
 	lg *zap.Logger
 	// Help message
 	helpMsg string
 	// Config for CLI.
-	cfg *Config
+	cfg *entity.CLIConf
 	// Directory to store GoK local files.
 	home string
 	// Username
@@ -153,7 +74,7 @@ func (c *CLI) initCLI() {
 
 	// Init GoK user config or read existing one from file.
 	filename := c.home + "/.gok/config.json"
-	c.cfg = NewConf(filename)
+	c.cfg = entity.NewCLIConf(filename)
 
 	c.dbConnect()
 	c.newUseCase()
@@ -389,7 +310,10 @@ func (c *CLI) pull() {
 		return
 	}
 
-	freshBrn, err := c.uc.Pull(c.cfg.Token, c.cfg.Branch, c.cfg.LocalHead)
+	freshBrn, err := c.uc.Pull(
+		c.cfg,
+		&entity.Branch{Name: c.cfg.Branch, Head: c.cfg.LocalHead},
+	)
 	if err != nil {
 		if errors.Is(err, gokErrors.ErrRecordNotFound) {
 			fmt.Println("No new records for pull.")
@@ -410,15 +334,15 @@ func (c *CLI) pull() {
 		return
 	}
 
-	// Update local branch head to fit server.
-	//if freshBrn.Head > c.cfg.LocalHead && freshBrn.Name == c.cfg.Branch {
-	//	c.cfg.LocalHead = freshBrn.Head
-	//	if err = c.cfg.Write(); err != nil {
-	//		c.lg.Error(err.Error())
-	//		return
-	//	}
-	//}
+	// IMPORTANT: update local branch head to fit server.
+	if freshBrn.Head > c.cfg.LocalHead && freshBrn.Name == c.cfg.Branch {
+		c.cfg.LocalHead = freshBrn.Head
+		if err = c.cfg.Write(); err != nil {
+			c.lg.Error(err.Error())
+			return
+		}
+	}
 
-	c.lg.Debug(fmt.Sprintf("local branch header: %d", c.cfg.LocalHead))
+	c.lg.Debug(fmt.Sprintf("updated local branch header: %d", c.cfg.LocalHead))
 	fmt.Println("Pull successful.")
 }

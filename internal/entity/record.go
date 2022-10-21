@@ -1,15 +1,16 @@
 package entity
 
 import (
+	"fmt"
 	"github.com/google/uuid"
 	"time"
 
 	gokConsts "github.com/sergeysynergy/gok/internal/consts"
 )
 
-type Field interface {
+type StringField interface {
 	Encrypt(key string) error
-	Decrypt(key string) error
+	Decrypt(key string) (*string, error)
 }
 
 type RecordID string
@@ -24,7 +25,14 @@ type Record struct {
 	UpdatedAt   time.Time
 }
 
-func NewRecord(key string, head uint64, branch string, description string, updatedAt time.Time, addition interface{}) *Record {
+func NewRecord(
+	key string,
+	head uint64,
+	branch string,
+	description string,
+	updatedAt time.Time,
+	addition interface{},
+) *Record {
 	r := &Record{
 		Head:        head,
 		Branch:      branch,
@@ -32,7 +40,11 @@ func NewRecord(key string, head uint64, branch string, description string, updat
 		UpdatedAt:   updatedAt,
 	}
 	r.genID()
-	r.Description.Encrypt(key)
+
+	err := r.Description.Encrypt(key)
+	if err != nil {
+		return nil
+	}
 
 	switch addition.(type) {
 	default:
@@ -40,6 +52,10 @@ func NewRecord(key string, head uint64, branch string, description string, updat
 	}
 
 	return r
+}
+
+func (r *Record) String() string {
+	return fmt.Sprintf("%s\t %s\t %d\t %s\t %s", r.ID, r.Type, r.Head, r.UpdatedAt, r.Description)
 }
 
 // genID generate new record ID.
@@ -50,12 +66,13 @@ func (r *Record) genID() {
 type Description string
 
 // Make sure that the Description field implements the Field interface:
-var _ Field = new(Description)
+var _ StringField = new(Description)
 
 func (d *Description) Encrypt(key string) error {
 	return nil
 }
 
-func (d *Description) Decrypt(key string) error {
-	return nil
+func (d *Description) Decrypt(key string) (*string, error) {
+	res := string(*d)
+	return &res, nil
 }

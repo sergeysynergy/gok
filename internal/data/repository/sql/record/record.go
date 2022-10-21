@@ -158,3 +158,26 @@ func (r *Repo) BulkCreateUpdate(ctx context.Context, recs []*entity.Record) erro
 
 	return nil
 }
+
+// ByIDsList return all records from given IDs slice.
+func (r *Repo) ByIDsList(ctx context.Context, ids []string) ([]*entity.Record, error) {
+	tx := r.db.WithContext(ctx)
+
+	listDB := make([]*model.Record, 0, len(ids))
+	result := tx.Where("id IN ?", ids).Find(&listDB)
+	err := result.Error
+	if err != nil {
+		return nil, err
+	}
+	if result.RowsAffected == 0 {
+		err = gokErrors.ErrRecordNotFound
+		return nil, err
+	}
+
+	list := make([]*entity.Record, 0, len(listDB))
+	for _, v := range listDB {
+		list = append(list, v.DomainBind())
+	}
+
+	return list, nil
+}

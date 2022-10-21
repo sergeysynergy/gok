@@ -24,6 +24,11 @@ var (
 
 	ErrLocalBranchBehind = errors.New("local branch in behind server")
 
+	ErrPullFailed       = errors.New("pull failed")
 	ErrPullUnknownError = errors.New("pull unknown error")
 	ErrPullUpToDate     = errors.New("pull already up to date")
+
+	ErrMergeFailed     = errors.New("merge failed")
+	ErrResolveConflict = errors.New("resolving merge conflict failed")
+	ErrCloningRecord   = errors.New("cloning record failed")
 )

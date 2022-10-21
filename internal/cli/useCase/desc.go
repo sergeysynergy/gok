@@ -2,6 +2,7 @@ package useCase
 
 import (
 	"fmt"
+
 	gokConsts "github.com/sergeysynergy/gok/internal/consts"
 	"github.com/sergeysynergy/gok/internal/entity"
 )
@@ -33,6 +34,8 @@ func (u *GokUseCase) DescSet(rec *entity.Record) error {
 		if err != nil {
 			err = fmt.Errorf("%s - %w", prefix, err)
 			u.lg.Error(err.Error())
+		} else {
+			u.lg.Debug(fmt.Sprintf("%s done successfully", prefix))
 		}
 	}()
 
