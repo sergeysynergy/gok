@@ -85,7 +85,7 @@ func (c *CLI) parsePreCommandsArgs() error {
 	c.home, _ = os.LookupEnv("HOME")
 	c.user, _ = os.LookupEnv("USER")
 
-	flag.StringVar(&c.home, "h", c.home, "set home directory where GoK will store its files")
+	flag.StringVar(&c.home, "hm", c.home, "set home directory where GoK will store its files")
 	flag.StringVar(&c.user, "u", c.user, "set GoK user")
 	flag.Parse()
 
@@ -235,6 +235,7 @@ func (c *CLI) init() {
 		return
 	}
 
+	// TODO: add branch switching, now just using `default` branch
 	brn, err := c.uc.Init(c.cfg.Token)
 	if err != nil {
 		if errors.Is(err, gokErrors.ErrAuthRequired) {
@@ -244,14 +245,30 @@ func (c *CLI) init() {
 		}
 		return
 	}
-
 	c.cfg.Branch = brn.Name
 
 	if brn.Head > c.cfg.LocalHead {
-		c.cfg.LocalHead = brn.Head
-		// TODO: add git pull command
-	}
+		c.lg.Debug("branch already exists on server, doing force pull to init new local repository")
+		_, err = c.uc.Pull(
+			true,
+			c.cfg,
+			&entity.Branch{Name: c.cfg.Branch, Head: c.cfg.LocalHead},
+		)
+		if err != nil {
+			if errors.Is(err, gokErrors.ErrRecordNotFound) {
+				fmt.Println("No new records for pull.")
+				return
+			}
+			if errors.Is(err, gokErrors.ErrAuthRequired) {
+				fmt.Println("Authentication required: try to signin or login.")
+				return
+			}
 
+			c.lg.Error(err.Error())
+			return
+		}
+		c.cfg.LocalHead = brn.Head
+	}
 	if err = c.cfg.Write(); err != nil {
 		c.lg.Error(err.Error())
 		return
@@ -304,6 +321,7 @@ func (c *CLI) push() {
 	fmt.Println("Push successful.")
 }
 
+// pull new records form server; force = true pulling all records from server
 func (c *CLI) pull() {
 	if len(c.args) > 1 {
 		fmt.Println("Too many arguments for pull.")
@@ -311,6 +329,7 @@ func (c *CLI) pull() {
 	}
 
 	freshBrn, err := c.uc.Pull(
+		false,
 		c.cfg,
 		&entity.Branch{Name: c.cfg.Branch, Head: c.cfg.LocalHead},
 	)

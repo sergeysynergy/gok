@@ -34,7 +34,7 @@ type UseCase interface {
 	Login(*entity.CLIUser) (*entity.SignedUser, error)
 	Init(token string) (*entity.Branch, error)
 	Push(token string, branch string, head uint64) (*entity.Branch, error)
-	Pull(*entity.CLIConf, *entity.Branch) (*entity.Branch, error)
+	Pull(bool, *entity.CLIConf, *entity.Branch) (*entity.Branch, error)
 
 	DescAdd(*entity.Record) error
 	DescSet(*entity.Record) error

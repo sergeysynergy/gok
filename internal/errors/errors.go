@@ -6,6 +6,7 @@ import (
 )
 
 var (
+	ErrLoginFailed  = errors.New("login failed")
 	ErrAuthRequired = errors.New("authentication required")
 
 	ErrUserUnknown         = errors.New("user unknown error")

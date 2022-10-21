@@ -68,7 +68,7 @@ usage: cli [--help] [--version] [-h] [-u] <command> [<args>]
 Pre command arguments:
 	--help		List available commands.
 	--version	Displays build version and date.
-	-h 			Set home directory where GoK will store its files. Use HOME environment value by default.
+	-hm			Set home directory where GoK will store its files. Use HOME environment value by default.
 	-u 			Set GoK user. Use USER environment value by default.
 
 These are common GoK commands used in various situations:

@@ -73,7 +73,7 @@ func (u *GokUseCase) Login(usrCLI *entity.CLIUser) (*entity.SignedUser, error) {
 
 	signedUsr, err := u.client.Login(u.ctx, usr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w -%s", gokErrors.ErrLoginFailed, err)
 	}
 
 	return signedUsr, nil
@@ -125,7 +125,7 @@ func (u *GokUseCase) Push(token string, branch string, head uint64) (*entity.Bra
 	return brn, nil
 }
 
-func (u *GokUseCase) Pull(cfg *entity.CLIConf, locBrn *entity.Branch) (*entity.Branch, error) {
+func (u *GokUseCase) Pull(force bool, cfg *entity.CLIConf, locBrn *entity.Branch) (*entity.Branch, error) {
 	u.lg.Debug("doing GokUseCase.Pull")
 	var err error
 	defer func() {
@@ -152,10 +152,18 @@ func (u *GokUseCase) Pull(cfg *entity.CLIConf, locBrn *entity.Branch) (*entity.B
 	}
 	u.lg.Debug(fmt.Sprintf("records IDs for merging: %s", ids))
 
+	// If force flag is set: just add and replace local records.
+	if force {
+		if err = u.repo.BulkCreateUpdate(u.ctx, freshRecs); err != nil {
+			return nil, fmt.Errorf("%w - %s", gokErrors.ErrPullFailed, err)
+		}
+		return freshBrn, nil
+	}
+
 	// Get local records with given ids.
 	locRecs, err := u.repo.ByIDsList(u.ctx, ids)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w - %s", gokErrors.ErrPullFailed, err)
 	}
 
 	// Do merging:
@@ -174,6 +182,7 @@ func (u *GokUseCase) Pull(cfg *entity.CLIConf, locBrn *entity.Branch) (*entity.B
 			*v = *freshRecsByID[v.ID]
 		}
 	}
+
 	// Finally write updated records to repository.
 	if err = u.repo.BulkCreateUpdate(u.ctx, locRecs); err != nil {
 		return nil, fmt.Errorf("%w - %s", gokErrors.ErrPullFailed, err)
