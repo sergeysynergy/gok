@@ -118,7 +118,7 @@ func (u *UseCaseForBranch) Set(ctx context.Context, token string, brn *entity.Br
 	return nil
 }
 
-func (u *UseCaseForBranch) Push(ctx context.Context, token string, localBrn *entity.Branch, records []*entity.Record) (*entity.Branch, error) {
+func (u *UseCaseForBranch) Push(ctx context.Context, token string, localBrn *entity.Branch, recs []*entity.Record) (*entity.Branch, error) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -149,12 +149,16 @@ func (u *UseCaseForBranch) Push(ctx context.Context, token string, localBrn *ent
 		return nil, gokErrors.ErrLocalBranchBehind
 	}
 
-	err = u.record.BulkCreateUpdate(ctx, records)
+	u.lg.Debug("records for push:")
+	for _, v := range recs {
+		fmt.Println(v)
+	}
+	err = u.record.BulkCreateUpdate(ctx, recs)
 	if err != nil {
 		return nil, err
 	}
 
-	// Push was successful: increase server branch head
+	// IMPORTANT: push was successful - increase server branch head
 	freshBrn.Head = localBrn.Head + 1
 	err = u.repo.Update(ctx, freshBrn)
 	if err != nil {

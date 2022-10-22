@@ -113,7 +113,7 @@ func (r *Repo) HeadList(ctx context.Context, head uint64) ([]*entity.Record, err
 	listDB := make([]*model.Record, 0)
 	result := tx.Where("head > ?", head).Find(&listDB)
 	err := result.Error
-	if err != nil {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 	if result.RowsAffected == 0 {
@@ -129,8 +129,8 @@ func (r *Repo) HeadList(ctx context.Context, head uint64) ([]*entity.Record, err
 	return list, nil
 }
 
-func (r *Repo) BulkCreateUpdate(ctx context.Context, recs []*entity.Record) error {
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+func (r *Repo) BulkCreateUpdate(ctx context.Context, recs []*entity.Record) (err error) {
+	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, v := range recs {
 			recDB := model.Record{
 				ID:          string(v.ID),
@@ -141,12 +141,22 @@ func (r *Repo) BulkCreateUpdate(ctx context.Context, recs []*entity.Record) erro
 				UpdatedAt:   v.UpdatedAt,
 			}
 
-			err := tx.Create(&recDB).Error
-			if err != nil {
+			result := tx.First(&recDB)
+			err = result.Error
+			if err != nil && err != gorm.ErrRecordNotFound {
+				return err
+			}
+			if result.RowsAffected > 0 {
 				err = tx.Model(&recDB).Updates(&recDB).Error
 				if err != nil {
 					return err
 				}
+				continue
+			}
+
+			err = tx.Create(&recDB).Error
+			if err != nil && err != gorm.ErrNotImplemented {
+				return err
 			}
 		}
 

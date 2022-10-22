@@ -19,7 +19,7 @@ import (
 	"sync"
 )
 
-type Client struct {
+type GokClient struct {
 	lg   *zap.Logger
 	once *sync.Once
 	// gRPC Auth service address.
@@ -28,8 +28,8 @@ type Client struct {
 	storageAddr string
 }
 
-func New(logger *zap.Logger, authAddr, storageAddr string) *Client {
-	c := &Client{
+func New(logger *zap.Logger, authAddr, storageAddr string) *GokClient {
+	c := &GokClient{
 		lg:          logger,
 		authAddr:    authAddr,
 		storageAddr: storageAddr,
@@ -38,7 +38,7 @@ func New(logger *zap.Logger, authAddr, storageAddr string) *Client {
 	return c
 }
 
-func (c *Client) getAuthConnect() (pb.AuthClient, *grpc.ClientConn) {
+func (c *GokClient) getAuthConnect() (pb.AuthClient, *grpc.ClientConn) {
 	conn, err := grpc.Dial(c.authAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.lg.Fatal(err.Error())
@@ -47,7 +47,7 @@ func (c *Client) getAuthConnect() (pb.AuthClient, *grpc.ClientConn) {
 	return pb.NewAuthClient(conn), conn
 }
 
-func (c *Client) getStorageConnect() (pb.StorageClient, *grpc.ClientConn) {
+func (c *GokClient) getStorageConnect() (pb.StorageClient, *grpc.ClientConn) {
 	conn, err := grpc.Dial(c.storageAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		c.lg.Fatal(err.Error())
@@ -56,7 +56,7 @@ func (c *Client) getStorageConnect() (pb.StorageClient, *grpc.ClientConn) {
 	return pb.NewStorageClient(conn), conn
 }
 
-func (c *Client) SignIn(ctx context.Context, usr *entity.User) (*entity.SignedUser, error) {
+func (c *GokClient) SignIn(ctx context.Context, usr *entity.User) (*entity.SignedUser, error) {
 	auth, conn := c.getAuthConnect()
 	defer conn.Close()
 
@@ -83,7 +83,7 @@ func (c *Client) SignIn(ctx context.Context, usr *entity.User) (*entity.SignedUs
 	}, nil
 }
 
-func (c *Client) Login(ctx context.Context, usr *entity.User) (*entity.SignedUser, error) {
+func (c *GokClient) Login(ctx context.Context, usr *entity.User) (*entity.SignedUser, error) {
 	auth, conn := c.getAuthConnect()
 	defer conn.Close()
 
@@ -110,7 +110,7 @@ func (c *Client) Login(ctx context.Context, usr *entity.User) (*entity.SignedUse
 	}, nil
 }
 
-func (c *Client) Init(ctx context.Context, token string) (*entity.Branch, error) {
+func (c *GokClient) Init(ctx context.Context, token string) (*entity.Branch, error) {
 	storage, conn := c.getStorageConnect()
 	defer conn.Close()
 
@@ -137,7 +137,16 @@ func (c *Client) Init(ctx context.Context, token string) (*entity.Branch, error)
 	}, nil
 }
 
-func (c *Client) Push(ctx context.Context, token string, brn *entity.Branch, records []*entity.Record) (*entity.Branch, error) {
+func (c *GokClient) Push(ctx context.Context, token string, brn *entity.Branch, records []*entity.Record) (*entity.Branch, error) {
+	var err error
+	defer func() {
+		prefix := "GokClient.Push"
+		if err != nil {
+			err = fmt.Errorf("%s - %w", prefix, err)
+			c.lg.Error(err.Error())
+		}
+	}()
+
 	storage, conn := c.getStorageConnect()
 	defer conn.Close()
 
@@ -172,7 +181,7 @@ func (c *Client) Push(ctx context.Context, token string, brn *entity.Branch, rec
 				err = fmt.Errorf("%s - %s", e.Code(), e.Message())
 			}
 		}
-		c.lg.Debug("Failed to parse error: " + err.Error())
+		c.lg.Debug("GokClient.Push - failed to parse error: " + err.Error())
 		return nil, err
 	}
 
@@ -182,7 +191,7 @@ func (c *Client) Push(ctx context.Context, token string, brn *entity.Branch, rec
 	}, nil
 }
 
-func (c *Client) Pull(ctx context.Context, token string, brn *entity.Branch) (*entity.Branch, []*entity.Record, error) {
+func (c *GokClient) Pull(ctx context.Context, token string, brn *entity.Branch) (*entity.Branch, []*entity.Record, error) {
 	c.lg.Debug("doing GokDeliveryClient.Pull")
 
 	storage, conn := c.getStorageConnect()

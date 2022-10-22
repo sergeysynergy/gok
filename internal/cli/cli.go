@@ -32,7 +32,7 @@ type CLI struct {
 	// All CLI arguments goes after flags arguments.
 	args []string
 	// gRPC client to access GoK API.
-	client *gokClient.Client
+	client *gokClient.GokClient
 	// Use cases to work with GoK API.
 	uc gokUC.UseCase
 	// Database creds.
@@ -299,6 +299,7 @@ func (c *CLI) push() {
 		}
 
 		c.lg.Error(err.Error())
+		fmt.Println("Push failed")
 		return
 	}
 	if brn == nil {
@@ -308,7 +309,7 @@ func (c *CLI) push() {
 		return
 	}
 
-	// Update local branch head to fit server.
+	// IMPORTANT: push was successful - update local branch head to fit server.
 	if brn.Head > c.cfg.LocalHead && brn.Name == c.cfg.Branch {
 		c.cfg.LocalHead = brn.Head
 		if err = c.cfg.Write(); err != nil {

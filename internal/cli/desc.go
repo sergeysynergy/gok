@@ -126,7 +126,12 @@ func (c *CLI) descLs() {
 		return
 	}
 
-	for _, v := range list {
-		fmt.Println(v)
+	for _, r := range list {
+		desc, errDec := r.Description.Decrypt(c.cfg.Key)
+		if errDec != nil {
+			fmt.Println("Failed to decrypt description -", errDec.Error())
+			return
+		}
+		fmt.Printf("%s\t %s\t %d\t %s\t %s\n", r.ID, r.Type, r.Head, r.UpdatedAt, *desc)
 	}
 }

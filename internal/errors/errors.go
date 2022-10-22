@@ -21,13 +21,14 @@ var (
 	ErrRecordNotFound      = errors.New("record not found")
 	ErrRecordAlreadyExists = errors.New("record already exists")
 
-	ErrPushUnknownError = errors.New("push unknown error")
-
-	ErrLocalBranchBehind = errors.New("local branch in behind server")
+	ErrLocalBranchBehind = errors.New("local branch is behind server")
 
 	ErrPullFailed       = errors.New("pull failed")
 	ErrPullUnknownError = errors.New("pull unknown error")
 	ErrPullUpToDate     = errors.New("pull already up to date")
+
+	ErrPushFailed       = errors.New("push failed")
+	ErrPushUnknownError = errors.New("push unknown error")
 
 	ErrMergeFailed     = errors.New("merge failed")
 	ErrResolveConflict = errors.New("resolving merge conflict failed")

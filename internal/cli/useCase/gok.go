@@ -19,7 +19,7 @@ type GokUseCase struct {
 	client Client
 }
 
-func New(logger *zap.Logger, repo *recRepo.Repo, client *gokClient.Client) *GokUseCase {
+func New(logger *zap.Logger, repo *recRepo.Repo, client *gokClient.GokClient) *GokUseCase {
 	const (
 		defaultTimeout = 120 * time.Second
 	)
@@ -107,7 +107,7 @@ func (u *GokUseCase) Push(token string, branch string, head uint64) (*entity.Bra
 		}
 	}()
 
-	records, err := u.repo.HeadList(u.ctx, head)
+	recs, err := u.repo.HeadList(u.ctx, head)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (u *GokUseCase) Push(token string, branch string, head uint64) (*entity.Bra
 		Head: head,
 	}
 
-	brn, err = u.client.Push(u.ctx, token, brn, records)
+	brn, err = u.client.Push(u.ctx, token, brn, recs)
 	if err != nil {
 		return nil, err
 	}
