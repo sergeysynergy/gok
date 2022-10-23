@@ -36,7 +36,7 @@ type UseCase interface {
 	Push(token string, branch *entity.Branch) (*entity.Branch, error)
 	Pull(*entity.CLIConf, *entity.Branch) (*entity.Branch, error)
 
-	DescAdd(*entity.Record) error
-	DescSet(*entity.Record) error
-	DescList(branch *entity.Branch) ([]*entity.Record, error)
+	RecordAdd(*entity.CLIConf, *entity.Record) error
+	RecordSet(*entity.CLIConf, *entity.Record) error
+	RecordList(conf *entity.CLIConf, recType gokConsts.RecordType) ([]*entity.Record, error)
 }

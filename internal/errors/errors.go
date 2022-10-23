@@ -17,9 +17,10 @@ var (
 
 	ErrSessionNotFound = errors.New("session not found")
 
-	ErrRecordUnknown       = errors.New("record unknown error")
-	ErrRecordNotFound      = errors.New("record not found")
-	ErrRecordAlreadyExists = errors.New("record already exists")
+	ErrRecordUnknown              = errors.New("record unknown error")
+	ErrRecordNotFound             = errors.New("record not found")
+	ErrRecordAlreadyExists        = errors.New("record already exists")
+	ErrRecordUnknownExtensionType = errors.New("unknown extension type for record")
 
 	ErrLocalBranchBehind = errors.New("local branch is behind server")
 

@@ -21,25 +21,44 @@ func New(db *gorm.DB) *Repo {
 	return r
 }
 
-func (r *Repo) Create(ctx context.Context, rec *entity.Record) error {
-	tx := r.db.WithContext(ctx)
+func (r *Repo) Create(ctx context.Context, rec *entity.Record) (err error) {
+	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		recDB := model.Record{
+			ID:          string(rec.ID),
+			Head:        rec.Head,
+			BranchID:    uint64(rec.BranchID),
+			Description: string(rec.Description),
+			UpdatedAt:   rec.UpdatedAt,
+			Type:        string(rec.Type),
+		}
+		result := tx.Create(&recDB)
+		err = result.Error
+		if err != nil {
+			return err
+		}
+		if result.RowsAffected == 0 {
+			return gokErrors.ErrRecordUnknown
+		}
 
-	recDB := model.Record{
-		ID:          string(rec.ID),
-		Head:        rec.Head,
-		BranchID:    uint64(rec.BranchID),
-		Description: string(rec.Description),
-		Type:        string(rec.Type),
-		UpdatedAt:   rec.UpdatedAt,
-	}
+		switch ex := rec.Extension.(type) {
+		case *entity.Text:
+			textDB := model.Text{
+				ID:   string(rec.ID), // always using base record ID
+				Text: string(ex.Text),
+			}
+			err = tx.Create(&textDB).Error
+			if err != nil {
+				return err
+			}
+		default:
+			if ex != nil {
+				return gokErrors.ErrRecordUnknownExtensionType
+			}
+		}
 
-	result := tx.Create(&recDB)
-	err := result.Error
+		return nil
+	})
 	if err != nil {
-		return err
-	}
-	if result.RowsAffected == 0 {
-		err = gokErrors.ErrRecordUnknown
 		return err
 	}
 
@@ -50,26 +69,68 @@ func (r *Repo) Read(ctx context.Context, id entity.RecordID) (*entity.Record, er
 	return nil, nil
 }
 
-func (r *Repo) Update(ctx context.Context, rec *entity.Record) error {
-	tx := r.db.WithContext(ctx)
+func (r *Repo) Update(ctx context.Context, rec *entity.Record) (err error) {
+	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		recDB := model.Record{
+			ID:          string(rec.ID),
+			Head:        rec.Head,
+			BranchID:    uint64(rec.BranchID),
+			Description: string(rec.Description),
+			UpdatedAt:   rec.UpdatedAt,
+			Type:        string(rec.Type),
+		}
 
-	recDB := model.Record{
-		ID:          string(rec.ID),
-		Head:        rec.Head,
-		BranchID:    uint64(rec.BranchID),
-		Description: string(rec.Description),
-		Type:        string(rec.Type),
-		UpdatedAt:   rec.UpdatedAt,
-	}
+		result := tx.Model(&recDB).Updates(&recDB)
+		err = result.Error
+		if err != nil {
+			return err
+		}
+		if result.RowsAffected == 0 {
+			err = gokErrors.ErrRecordNotFound
+			return err
+		}
 
-	result := tx.Model(&recDB).Updates(&recDB)
-	err := result.Error
+		switch ex := rec.Extension.(type) {
+		case *entity.Text:
+			textDB := model.Text{
+				ID:   string(rec.ID), // always using base record ID
+				Text: string(ex.Text),
+			}
+			err = tx.Model(&textDB).Updates(&textDB).Error
+			if err != nil {
+				return err
+			}
+		default:
+			if ex != nil {
+				return gokErrors.ErrRecordUnknownExtensionType
+			}
+		}
+
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	if result.RowsAffected == 0 {
-		err = gokErrors.ErrRecordNotFound
-		return err
+
+	return nil
+}
+
+func (r *Repo) addExtension(ctx context.Context, rec *entity.Record) (err error) {
+	if rec.Type == gokConsts.DESC {
+		return nil
+	}
+
+	tx := r.db.WithContext(ctx)
+	switch rec.Type {
+	case gokConsts.TEXT:
+		textDB := &model.Text{ID: string(rec.ID)} // always using base record ID
+		err = tx.Take(&textDB).Error
+		if err != nil {
+			return err
+		}
+		rec.Extension = textDB.DomainBind()
+	default:
+		return gokErrors.ErrRecordUnknownExtensionType
 	}
 
 	return nil
@@ -87,7 +148,15 @@ func (r *Repo) TypeList(ctx context.Context, brnID entity.BranchID, recType gokC
 
 	list := make([]*entity.Record, 0, len(listDB))
 	for _, v := range listDB {
-		list = append(list, v.DomainBind())
+		rec := v.DomainBind()
+
+		// Search for extension for non DESC types
+		err = r.addExtension(ctx, rec)
+		if err != nil {
+			return nil, err
+		}
+
+		list = append(list, rec)
 	}
 
 	return list, nil

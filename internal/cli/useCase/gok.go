@@ -253,7 +253,7 @@ func (u *GokUseCase) resolveConflicts(cfg *entity.CLIConf, freshBrn *entity.Bran
 	case 3:
 		u.lg.Debug("keep local record, ignore server version: set record head to server so record will be included in future push.")
 		locRec.Head = freshBrn.Head + 1 // set to server branch head +1, so record will be included in next push
-		if err = u.DescSet(locRec); err != nil {
+		if err = u.RecordSet(cfg, locRec); err != nil {
 			err = fmt.Errorf("%w - %s", gokErrors.ErrResolveConflict, err)
 		}
 	default:
@@ -277,17 +277,20 @@ func (u *GokUseCase) clone(cfg *entity.CLIConf, freshBrn *entity.Branch, rec *en
 		}
 	}()
 
-	desc, err := rec.Description.Decrypt(cfg.Key)
+	descStr, err := rec.Description.Decrypt(cfg.Key)
 	if err != nil {
 		return fmt.Errorf("%w - %s", gokErrors.ErrCloningRecord, err)
 	}
+
+	desc := entity.StringField(*descStr)
 
 	clonedRec := entity.NewRecord(
 		cfg.Key,
 		freshBrn.Head+1, // set to server branch head +1, so record will be included in next push
 		entity.BranchID(cfg.BranchID),
-		*desc,
+		desc,
 		time.Now(),
+		//rec.Type,
 		nil,
 	)
 	err = u.repo.Create(u.ctx, clonedRec)

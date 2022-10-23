@@ -88,7 +88,7 @@ func (s StorageServer) Push(ctx context.Context, in *pb.PushRequest) (*pb.PushRe
 			ID:          entity.RecordID(v.Id),
 			Head:        v.Head,
 			BranchID:    entity.BranchID(v.BranchID),
-			Description: entity.Description(v.Description),
+			Description: entity.StringField(v.Description),
 			Type:        gokConsts.RecordType(v.Type),
 			UpdatedAt:   v.UpdatedAt.AsTime(),
 		})

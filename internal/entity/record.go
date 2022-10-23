@@ -3,15 +3,11 @@ package entity
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"log"
 	"time"
 
 	gokConsts "github.com/sergeysynergy/gok/internal/consts"
 )
-
-type StringField interface {
-	Encrypt(key string) error
-	Decrypt(key string) (*string, error)
-}
 
 type RecordID string
 
@@ -20,24 +16,28 @@ type Record struct {
 	ID          RecordID
 	Head        uint64
 	BranchID    BranchID
-	Description Description
-	Type        gokConsts.RecordType
+	Description StringField
 	UpdatedAt   time.Time
+	Type        gokConsts.RecordType
+
+	Extension interface{}
 }
 
 func NewRecord(
 	key string,
 	head uint64,
 	branchID BranchID,
-	description string,
+	description StringField,
 	updatedAt time.Time,
-	addition interface{},
+	//recType gokConsts.RecordType,
+	extension interface{},
 ) *Record {
 	r := &Record{
 		Head:        head,
 		BranchID:    branchID,
-		Description: Description(description),
+		Description: description,
 		UpdatedAt:   updatedAt,
+		//Type:        recType,
 	}
 	r.genID()
 
@@ -46,8 +46,16 @@ func NewRecord(
 		return nil
 	}
 
-	switch addition.(type) {
+	// Using new type functions for encryption processing.
+	switch ex := extension.(type) {
+	case *Text:
+		r.Type = gokConsts.TEXT
+		r.Extension = NewText(key, r.ID, ex.Text)
 	default:
+		// For default description type - extension should be nil.
+		if extension != nil {
+			log.Fatalln("Unknown record type")
+		}
 		r.Type = gokConsts.DESC
 	}
 
@@ -55,7 +63,16 @@ func NewRecord(
 }
 
 func (r *Record) String() string {
-	return fmt.Sprintf("%s\t %s\t %d\t %s\t %s", r.ID, r.Type, r.Head, r.UpdatedAt, r.Description)
+	msg := fmt.Sprintf("%s\t %s\t %d\t %s", r.ID, r.Type, r.Head, r.Description)
+
+	switch ex := r.Extension.(type) {
+	case *Text:
+		if ex != nil {
+			msg = fmt.Sprintf("%s\t %s", msg, ex.Text)
+		}
+	}
+
+	return msg
 }
 
 // genID generate new record ID.
@@ -63,16 +80,13 @@ func (r *Record) genID() {
 	r.ID = RecordID(uuid.New().String())
 }
 
-type Description string
+type StringField string
 
-// Make sure that the Description field implements the Field interface:
-var _ StringField = new(Description)
-
-func (d *Description) Encrypt(key string) error {
+func (d *StringField) Encrypt(key string) error {
 	return nil
 }
 
-func (d *Description) Decrypt(key string) (*string, error) {
+func (d *StringField) Decrypt(key string) (*string, error) {
 	res := string(*d)
 	return &res, nil
 }

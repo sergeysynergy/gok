@@ -13,8 +13,8 @@ type Record struct {
 	Head        uint64    `gorm:"not null"`
 	BranchID    uint64    `gorm:"not null"`
 	Description string    `gorm:"not null"`
-	Type        string    `gorm:"not null"`
 	UpdatedAt   time.Time `gorm:"not null"`
+	Type        string    `gorm:"not null"`
 }
 
 func (r *Record) DomainBind() *entity.Record {
@@ -22,8 +22,8 @@ func (r *Record) DomainBind() *entity.Record {
 		ID:          entity.RecordID(r.ID),
 		Head:        r.Head,
 		BranchID:    entity.BranchID(r.BranchID),
-		Description: entity.Description(r.Description),
-		Type:        gokConsts.RecordType(r.Type),
+		Description: entity.StringField(r.Description),
 		UpdatedAt:   r.UpdatedAt,
+		Type:        gokConsts.RecordType(r.Type),
 	}
 }

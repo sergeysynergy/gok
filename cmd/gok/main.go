@@ -76,9 +76,13 @@ These are common GoK commands used in various situations:
 start working with GoK
 	init	Create new or pull existing branch to store secret data
 
-	desc add		Create new description record
-	desc ls			List all description records
-	desc set [ID]	Update description record by given ID
+	desc add [description]		Create new description record
+	desc ls						List all description records
+	desc set [ID] [description]	Update description record by given ID
+
+	text add [description] [text]		Create new text record
+	text ls								List all text records
+	text set [ID] [description] [text]	Update text record by given ID
 
 	sync data with service
 		pull 	Fetch data from service to local database

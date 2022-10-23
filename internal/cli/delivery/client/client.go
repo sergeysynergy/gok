@@ -236,7 +236,7 @@ func (c *GokClient) Pull(ctx context.Context, token string, brn *entity.Branch) 
 			ID:          entity.RecordID(v.Id),
 			Head:        v.Head,
 			BranchID:    entity.BranchID(v.BranchID),
-			Description: entity.Description(v.Description),
+			Description: entity.StringField(v.Description),
 			Type:        gokConsts.RecordType(v.Type),
 			UpdatedAt:   v.UpdatedAt.AsTime(),
 		})

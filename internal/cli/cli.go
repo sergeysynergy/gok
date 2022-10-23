@@ -117,7 +117,7 @@ func (c *CLI) dbConnect() {
 		}
 
 		// Create and migrate database tables.
-		err = db.AutoMigrate(&model.Record{})
+		err = db.AutoMigrate(&model.Record{}, &model.Text{})
 		if err != nil {
 			c.lg.Fatal(fmt.Sprintf("auto migration has failed: %s", err))
 		}
@@ -156,6 +156,8 @@ func (c *CLI) Parse() {
 		}
 	case "desc":
 		c.desc()
+	case "text":
+		c.text()
 	case "push":
 		c.push()
 	case "pull":
