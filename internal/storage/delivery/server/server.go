@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/ptypes/empty"
 	gokConsts "github.com/sergeysynergy/gok/internal/consts"
 	"github.com/sergeysynergy/gok/internal/entity"
@@ -55,6 +56,7 @@ func (s StorageServer) InitBranch(ctx context.Context, _ *empty.Empty) (*pb.Init
 
 	return &pb.InitBranchResponse{
 		Branch: &pb.Branch{
+			Id:   uint64(brn.ID),
 			Name: brn.Name,
 			Head: brn.Head,
 		},
@@ -62,6 +64,7 @@ func (s StorageServer) InitBranch(ctx context.Context, _ *empty.Empty) (*pb.Init
 }
 
 func (s StorageServer) Push(ctx context.Context, in *pb.PushRequest) (*pb.PushResponse, error) {
+	logPrefix := "StorageServer.Push"
 	// Get token value from metadata.
 	var token string
 	md, ok := metadata.FromIncomingContext(ctx)
@@ -74,6 +77,7 @@ func (s StorageServer) Push(ctx context.Context, in *pb.PushRequest) (*pb.PushRe
 	}
 
 	brn := &entity.Branch{
+		ID:   entity.BranchID(in.Branch.Id),
 		Name: in.Branch.Name,
 		Head: in.Branch.Head,
 	}
@@ -83,7 +87,7 @@ func (s StorageServer) Push(ctx context.Context, in *pb.PushRequest) (*pb.PushRe
 		records = append(records, &entity.Record{
 			ID:          entity.RecordID(v.Id),
 			Head:        v.Head,
-			Branch:      v.Branch,
+			BranchID:    entity.BranchID(v.BranchID),
 			Description: entity.Description(v.Description),
 			Type:        gokConsts.RecordType(v.Type),
 			UpdatedAt:   v.UpdatedAt.AsTime(),
@@ -95,8 +99,10 @@ func (s StorageServer) Push(ctx context.Context, in *pb.PushRequest) (*pb.PushRe
 		return nil, err
 	}
 
+	s.lg.Debug(fmt.Sprintf("%s successful, got branch: ID %d; name %s; head %d", logPrefix, brn.ID, brn.Name, brn.Head))
 	return &pb.PushResponse{
 		Branch: &pb.Branch{
+			Id:   uint64(brn.ID),
 			Name: brn.Name,
 			Head: brn.Head,
 		},
@@ -120,6 +126,7 @@ func (s StorageServer) Pull(ctx context.Context, in *pb.PullRequest) (*pb.PullRe
 		ctx,
 		token,
 		&entity.Branch{
+			ID:   entity.BranchID(in.Branch.Id),
 			Name: in.Branch.Name,
 			Head: in.Branch.Head,
 		},
@@ -127,6 +134,9 @@ func (s StorageServer) Pull(ctx context.Context, in *pb.PullRequest) (*pb.PullRe
 	if err != nil {
 		if errors.Is(err, gokErrors.ErrPullUpToDate) {
 			return nil, ErrPullUpToDate
+		}
+		if errors.Is(err, gokErrors.ErrRecordNotFound) {
+			return nil, ErrRecordNotFound
 		}
 		return nil, err
 	}
@@ -136,7 +146,7 @@ func (s StorageServer) Pull(ctx context.Context, in *pb.PullRequest) (*pb.PullRe
 		recsPB = append(recsPB, &pb.Record{
 			Id:          string(v.ID),
 			Head:        v.Head,
-			Branch:      v.Branch,
+			BranchID:    uint64(v.BranchID),
 			Description: string(v.Description),
 			Type:        string(v.Type),
 			UpdatedAt:   timestamppb.New(v.UpdatedAt),
@@ -145,6 +155,7 @@ func (s StorageServer) Pull(ctx context.Context, in *pb.PullRequest) (*pb.PullRe
 
 	return &pb.PullResponse{
 		Branch: &pb.Branch{
+			Id:   uint64(freshBrn.ID),
 			Name: freshBrn.Name,
 			Head: freshBrn.Head,
 		},

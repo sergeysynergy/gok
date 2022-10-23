@@ -21,7 +21,7 @@ type CLIConf struct {
 	StorageAddr string `json:"storage_addr"`
 	Token       string `json:"token"`
 	Key         string `json:"key"`
-	Branch      string `json:"branch"`
+	BranchID    uint64 `json:"branch_id"`
 	LocalHead   uint64 `json:"head"`
 }
 
@@ -79,7 +79,7 @@ func (c *CLIConf) Read() error {
 	c.StorageAddr = cfg.StorageAddr
 	c.Token = cfg.Token
 	c.Key = cfg.Key
-	c.Branch = cfg.Branch
+	c.BranchID = cfg.BranchID
 	c.LocalHead = cfg.LocalHead
 
 	return nil

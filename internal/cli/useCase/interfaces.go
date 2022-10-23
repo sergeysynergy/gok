@@ -12,9 +12,9 @@ type Repo interface {
 	Update(context.Context, *entity.Record) error
 
 	// TypeList return records of given type.
-	TypeList(context.Context, gokConsts.RecordType) ([]*entity.Record, error)
+	TypeList(context.Context, entity.BranchID, gokConsts.RecordType) ([]*entity.Record, error)
 	// HeadList return all records where record head more than given head.
-	HeadList(ctx context.Context, head uint64) ([]*entity.Record, error)
+	HeadList(ctx context.Context, brnID entity.BranchID, head uint64) ([]*entity.Record, error)
 	// BulkCreateUpdate records.
 	BulkCreateUpdate(context.Context, []*entity.Record) error
 	// ByIDsList return all records from given IDs slice.
@@ -32,11 +32,11 @@ type Client interface {
 type UseCase interface {
 	SignIn(*entity.CLIUser) (*entity.SignedUser, error)
 	Login(*entity.CLIUser) (*entity.SignedUser, error)
-	Init(token string) (*entity.Branch, error)
-	Push(token string, branch string, head uint64) (*entity.Branch, error)
-	Pull(bool, *entity.CLIConf, *entity.Branch) (*entity.Branch, error)
+	Init(token string, head uint64) (*entity.Branch, error)
+	Push(token string, branch *entity.Branch) (*entity.Branch, error)
+	Pull(*entity.CLIConf, *entity.Branch) (*entity.Branch, error)
 
 	DescAdd(*entity.Record) error
 	DescSet(*entity.Record) error
-	DescList() ([]*entity.Record, error)
+	DescList(branch *entity.Branch) ([]*entity.Record, error)
 }

@@ -17,15 +17,16 @@ service Storage {
 message Record {
   string id = 1;
   uint64 head = 2;
-  string branch = 3;
+  uint64 branchID = 3;
   string description = 4;
   string type = 5;
   google.protobuf.Timestamp updatedAt = 6;
 }
 
 message Branch {
-  string name = 1;
-  uint64 head = 2;
+  uint64 id = 1;
+  string name = 2;
+  uint64 head = 3;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

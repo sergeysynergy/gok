@@ -141,13 +141,19 @@ func (c *CLI) Parse() {
 		return
 	}
 
+	var err error
 	switch c.args[0] {
 	case "signin":
 		c.signIn()
 	case "login":
 		c.login()
 	case "init":
-		c.init()
+		err = c.init()
+		if err != nil {
+			fmt.Println("Init failed: ", err)
+		} else {
+			fmt.Println("\nBranch has been successfully initiated. Now it's time to add some secrets!")
+		}
 	case "desc":
 		c.desc()
 	case "push":
@@ -229,52 +235,35 @@ func (c *CLI) login() {
 }
 
 // Method init add or get branch info and store it locally in config file.
-func (c *CLI) init() {
+func (c *CLI) init() (err error) {
+	defer func() {
+		prefix := "CLI.init"
+		if err != nil {
+			msg := fmt.Errorf("%s - %w", prefix, err).Error()
+			c.lg.Error(msg)
+		} else {
+			c.lg.Debug(fmt.Sprintf("%s done successfully", prefix))
+		}
+	}()
+
 	if len(c.args) > 1 {
-		fmt.Println("Invalid argument: home and user enough to execute init... so far.")
+		err = fmt.Errorf("invalid argument: home and user enough to execute init... so far")
 		return
 	}
 
 	// TODO: add branch switching, now just using `default` branch
-	brn, err := c.uc.Init(c.cfg.Token)
-	if err != nil {
-		if errors.Is(err, gokErrors.ErrAuthRequired) {
-			fmt.Println("Authentication required: try to signin or login.")
-		} else {
-			c.lg.Error(err.Error())
-		}
+	brn, err := c.uc.Init(c.cfg.Token, c.cfg.LocalHead)
+	if err != nil && !errors.Is(err, gokErrors.ErrRecordNotFound) {
 		return
 	}
-	c.cfg.Branch = brn.Name
-
-	if brn.Head > c.cfg.LocalHead {
-		c.lg.Debug("branch already exists on server, doing force pull to init new local repository")
-		_, err = c.uc.Pull(
-			true,
-			c.cfg,
-			&entity.Branch{Name: c.cfg.Branch, Head: c.cfg.LocalHead},
-		)
-		if err != nil {
-			if errors.Is(err, gokErrors.ErrRecordNotFound) {
-				fmt.Println("No new records for pull.")
-				return
-			}
-			if errors.Is(err, gokErrors.ErrAuthRequired) {
-				fmt.Println("Authentication required: try to signin or login.")
-				return
-			}
-
-			c.lg.Error(err.Error())
-			return
-		}
-		c.cfg.LocalHead = brn.Head
-	}
+	c.cfg.BranchID = uint64(brn.ID)
+	c.cfg.LocalHead = brn.Head
 	if err = c.cfg.Write(); err != nil {
-		c.lg.Error(err.Error())
 		return
 	}
 
-	fmt.Println("Branch `" + brn.Name + "` has been successfully initiated. Now it's time to add some secrets!")
+	c.lg.Debug(fmt.Sprintf("CLI.init - local branch now: ID %d, name %s, head %d", brn.ID, brn.Name, brn.Head))
+	return nil
 }
 
 func (c *CLI) push() {
@@ -283,7 +272,10 @@ func (c *CLI) push() {
 		return
 	}
 
-	brn, err := c.uc.Push(c.cfg.Token, c.cfg.Branch, c.cfg.LocalHead)
+	brn, err := c.uc.Push(
+		c.cfg.Token,
+		&entity.Branch{ID: entity.BranchID(c.cfg.BranchID), Head: c.cfg.LocalHead},
+	)
 	if err != nil {
 		if errors.Is(err, gokErrors.ErrLocalBranchBehind) {
 			fmt.Println("Your local branch is behind server: please make pull first to update data.")
@@ -310,7 +302,7 @@ func (c *CLI) push() {
 	}
 
 	// IMPORTANT: push was successful - update local branch head to fit server.
-	if brn.Head > c.cfg.LocalHead && brn.Name == c.cfg.Branch {
+	if brn.Head > c.cfg.LocalHead && brn.ID == entity.BranchID(c.cfg.BranchID) {
 		c.cfg.LocalHead = brn.Head
 		if err = c.cfg.Write(); err != nil {
 			c.lg.Error(err.Error())
@@ -330,9 +322,8 @@ func (c *CLI) pull() {
 	}
 
 	freshBrn, err := c.uc.Pull(
-		false,
 		c.cfg,
-		&entity.Branch{Name: c.cfg.Branch, Head: c.cfg.LocalHead},
+		&entity.Branch{ID: entity.BranchID(c.cfg.BranchID), Head: c.cfg.LocalHead},
 	)
 	if err != nil {
 		if errors.Is(err, gokErrors.ErrRecordNotFound) {
@@ -355,7 +346,7 @@ func (c *CLI) pull() {
 	}
 
 	// IMPORTANT: update local branch head to fit server.
-	if freshBrn.Head > c.cfg.LocalHead && freshBrn.Name == c.cfg.Branch {
+	if freshBrn.Head > c.cfg.LocalHead && freshBrn.ID == entity.BranchID(c.cfg.BranchID) {
 		c.cfg.LocalHead = freshBrn.Head
 		if err = c.cfg.Write(); err != nil {
 			c.lg.Error(err.Error())

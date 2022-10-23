@@ -19,7 +19,7 @@ type RecordID string
 type Record struct {
 	ID          RecordID
 	Head        uint64
-	Branch      string
+	BranchID    BranchID
 	Description Description
 	Type        gokConsts.RecordType
 	UpdatedAt   time.Time
@@ -28,14 +28,14 @@ type Record struct {
 func NewRecord(
 	key string,
 	head uint64,
-	branch string,
+	branchID BranchID,
 	description string,
 	updatedAt time.Time,
 	addition interface{},
 ) *Record {
 	r := &Record{
 		Head:        head,
-		Branch:      branch,
+		BranchID:    branchID,
 		Description: Description(description),
 		UpdatedAt:   updatedAt,
 	}

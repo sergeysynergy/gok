@@ -121,17 +121,21 @@ func (c *GokClient) Init(ctx context.Context, token string) (*entity.Branch, err
 	resp, err := storage.InitBranch(ctx, &empty.Empty{})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			if e.Code() == codes.Unauthenticated {
+			switch e.Code() {
+			case codes.Unauthenticated:
 				err = fmt.Errorf("%s - %w", e.Message(), gokErrors.ErrAuthRequired)
-			} else {
+			case codes.NotFound:
+				err = fmt.Errorf("%s - %w", e.Message(), gokErrors.ErrRecordNotFound)
+			default:
 				err = fmt.Errorf("%s - %s", e.Code(), e.Message())
 			}
 		}
-		c.lg.Debug("Failed to parse error: " + err.Error())
+		c.lg.Debug("GokClient.Init - failed to parse error: " + err.Error())
 		return nil, err
 	}
 
 	return &entity.Branch{
+		ID:   entity.BranchID(resp.Branch.Id),
 		Name: resp.Branch.Name,
 		Head: resp.Branch.Head,
 	}, nil
@@ -139,10 +143,10 @@ func (c *GokClient) Init(ctx context.Context, token string) (*entity.Branch, err
 
 func (c *GokClient) Push(ctx context.Context, token string, brn *entity.Branch, records []*entity.Record) (*entity.Branch, error) {
 	var err error
+	logPrefix := "GokClient.Push"
 	defer func() {
-		prefix := "GokClient.Push"
 		if err != nil {
-			err = fmt.Errorf("%s - %w", prefix, err)
+			err = fmt.Errorf("%s - %w", logPrefix, err)
 			c.lg.Error(err.Error())
 		}
 	}()
@@ -159,7 +163,7 @@ func (c *GokClient) Push(ctx context.Context, token string, brn *entity.Branch, 
 		reqPB = append(reqPB, &pb.Record{
 			Id:          string(v.ID),
 			Head:        v.Head,
-			Branch:      v.Branch,
+			BranchID:    uint64(v.BranchID),
 			Description: string(v.Description),
 			Type:        string(v.Type),
 			UpdatedAt:   timestamppb.New(v.UpdatedAt),
@@ -168,6 +172,7 @@ func (c *GokClient) Push(ctx context.Context, token string, brn *entity.Branch, 
 
 	resp, err := storage.Push(ctx, &pb.PushRequest{
 		Branch: &pb.Branch{
+			Id:   uint64(brn.ID),
 			Name: brn.Name,
 			Head: brn.Head,
 		},
@@ -185,10 +190,14 @@ func (c *GokClient) Push(ctx context.Context, token string, brn *entity.Branch, 
 		return nil, err
 	}
 
-	return &entity.Branch{
+	brn = &entity.Branch{
+		ID:   entity.BranchID(resp.Branch.Id),
 		Name: resp.Branch.Name,
 		Head: resp.Branch.Head,
-	}, nil
+	}
+
+	c.lg.Debug(fmt.Sprintf("%s successful, got branch: ID %d; name %s; head %d", logPrefix, brn.ID, brn.Name, brn.Head))
+	return brn, nil
 }
 
 func (c *GokClient) Pull(ctx context.Context, token string, brn *entity.Branch) (*entity.Branch, []*entity.Record, error) {
@@ -203,15 +212,17 @@ func (c *GokClient) Pull(ctx context.Context, token string, brn *entity.Branch) 
 
 	resp, err := storage.Pull(ctx, &pb.PullRequest{
 		Branch: &pb.Branch{
+			Id:   uint64(brn.ID),
 			Name: brn.Name,
 			Head: brn.Head,
 		},
 	})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
-			if e.Code() == codes.Unauthenticated {
+			switch e.Code() {
+			case codes.Unauthenticated:
 				err = fmt.Errorf("%s - %w", e.Message(), gokErrors.ErrAuthRequired)
-			} else {
+			default:
 				err = fmt.Errorf("%s - %s", e.Code(), e.Message())
 			}
 		}
@@ -224,7 +235,7 @@ func (c *GokClient) Pull(ctx context.Context, token string, brn *entity.Branch) 
 		recs = append(recs, &entity.Record{
 			ID:          entity.RecordID(v.Id),
 			Head:        v.Head,
-			Branch:      v.Branch,
+			BranchID:    entity.BranchID(v.BranchID),
 			Description: entity.Description(v.Description),
 			Type:        gokConsts.RecordType(v.Type),
 			UpdatedAt:   v.UpdatedAt.AsTime(),
@@ -232,6 +243,7 @@ func (c *GokClient) Pull(ctx context.Context, token string, brn *entity.Branch) 
 	}
 
 	return &entity.Branch{
+		ID:   entity.BranchID(resp.Branch.Id),
 		Name: resp.Branch.Name,
 		Head: resp.Branch.Head,
 	}, recs, nil

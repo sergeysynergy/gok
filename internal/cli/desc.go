@@ -49,7 +49,7 @@ func (c *CLI) descAdd() {
 	dsr := entity.NewRecord(
 		c.cfg.Key,
 		c.cfg.LocalHead+1, // increase head counter for new records
-		c.cfg.Branch,
+		entity.BranchID(c.cfg.BranchID),
 		description,
 		time.Now(),
 		nil,
@@ -89,7 +89,7 @@ func (c *CLI) descSet() {
 	dsr := &entity.Record{
 		ID:          entity.RecordID(id),
 		Head:        c.cfg.LocalHead + 1, // increase head counter
-		Branch:      c.cfg.Branch,
+		BranchID:    entity.BranchID(c.cfg.BranchID),
 		Description: entity.Description(description),
 		Type:        gokConsts.DESC,
 		UpdatedAt:   time.Now(),
@@ -115,7 +115,7 @@ func (c *CLI) descLs() {
 		return
 	}
 
-	list, err := c.uc.DescList()
+	list, err := c.uc.DescList(&entity.Branch{ID: entity.BranchID(c.cfg.BranchID), Head: c.cfg.LocalHead})
 	if err != nil {
 		fmt.Println("Failed to get records list -", err.Error(), list)
 		return

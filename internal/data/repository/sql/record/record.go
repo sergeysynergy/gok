@@ -27,7 +27,7 @@ func (r *Repo) Create(ctx context.Context, rec *entity.Record) error {
 	recDB := model.Record{
 		ID:          string(rec.ID),
 		Head:        rec.Head,
-		Branch:      rec.Branch,
+		BranchID:    uint64(rec.BranchID),
 		Description: string(rec.Description),
 		Type:        string(rec.Type),
 		UpdatedAt:   rec.UpdatedAt,
@@ -47,19 +47,6 @@ func (r *Repo) Create(ctx context.Context, rec *entity.Record) error {
 }
 
 func (r *Repo) Read(ctx context.Context, id entity.RecordID) (*entity.Record, error) {
-	//tx := r.db.WithContext(ctx)
-	//
-	//usrDB := model.User{}
-	//err := tx.Take(&usrDB, id).Error
-	//if err != nil {
-	//	if errors.Is(err, gorm.ErrRecordNotFound) {
-	//		return nil, fmt.Errorf("%s: %w", err, gokErrors.ErrUserNotFound)
-	//	}
-	//	return nil, err
-	//}
-	//
-	//return usrDB.DomainBind(), nil
-
 	return nil, nil
 }
 
@@ -69,7 +56,7 @@ func (r *Repo) Update(ctx context.Context, rec *entity.Record) error {
 	recDB := model.Record{
 		ID:          string(rec.ID),
 		Head:        rec.Head,
-		Branch:      rec.Branch,
+		BranchID:    uint64(rec.BranchID),
 		Description: string(rec.Description),
 		Type:        string(rec.Type),
 		UpdatedAt:   rec.UpdatedAt,
@@ -88,11 +75,11 @@ func (r *Repo) Update(ctx context.Context, rec *entity.Record) error {
 	return nil
 }
 
-func (r *Repo) TypeList(ctx context.Context, recType gokConsts.RecordType) ([]*entity.Record, error) {
+func (r *Repo) TypeList(ctx context.Context, brnID entity.BranchID, recType gokConsts.RecordType) ([]*entity.Record, error) {
 	tx := r.db.WithContext(ctx)
 
 	listDB := make([]*model.Record, 0)
-	result := tx.Where("type = ?", recType).Find(&listDB)
+	result := tx.Where("branch_id = ? AND type = ?", brnID, recType).Find(&listDB)
 	err := result.Error
 	if err != nil {
 		return nil, err
@@ -107,11 +94,11 @@ func (r *Repo) TypeList(ctx context.Context, recType gokConsts.RecordType) ([]*e
 }
 
 // HeadList return all records where record head more than given head.
-func (r *Repo) HeadList(ctx context.Context, head uint64) ([]*entity.Record, error) {
+func (r *Repo) HeadList(ctx context.Context, brnID entity.BranchID, head uint64) ([]*entity.Record, error) {
 	tx := r.db.WithContext(ctx)
 
 	listDB := make([]*model.Record, 0)
-	result := tx.Where("head > ?", head).Find(&listDB)
+	result := tx.Where("branch_id = ? AND head > ?", brnID, head).Find(&listDB)
 	err := result.Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
@@ -135,7 +122,7 @@ func (r *Repo) BulkCreateUpdate(ctx context.Context, recs []*entity.Record) (err
 			recDB := model.Record{
 				ID:          string(v.ID),
 				Head:        v.Head,
-				Branch:      v.Branch,
+				BranchID:    uint64(v.BranchID),
 				Description: string(v.Description),
 				Type:        string(v.Type),
 				UpdatedAt:   v.UpdatedAt,
@@ -176,7 +163,7 @@ func (r *Repo) ByIDsList(ctx context.Context, ids []string) ([]*entity.Record, e
 	listDB := make([]*model.Record, 0, len(ids))
 	result := tx.Where("id IN ?", ids).Find(&listDB)
 	err := result.Error
-	if err != nil {
+	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
 	if result.RowsAffected == 0 {

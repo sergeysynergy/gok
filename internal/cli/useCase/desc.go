@@ -48,7 +48,7 @@ func (u *GokUseCase) DescSet(rec *entity.Record) error {
 }
 
 // DescList return list records of DESC type.
-func (u *GokUseCase) DescList() ([]*entity.Record, error) {
+func (u *GokUseCase) DescList(brn *entity.Branch) ([]*entity.Record, error) {
 	var err error
 	defer func() {
 		prefix := "GokUseCase.DescList"
@@ -58,7 +58,7 @@ func (u *GokUseCase) DescList() ([]*entity.Record, error) {
 		}
 	}()
 
-	list, err := u.repo.TypeList(u.ctx, gokConsts.DESC)
+	list, err := u.repo.TypeList(u.ctx, brn.ID, gokConsts.DESC)
 	if err != nil {
 		return nil, err
 	}

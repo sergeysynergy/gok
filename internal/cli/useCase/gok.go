@@ -79,42 +79,67 @@ func (u *GokUseCase) Login(usrCLI *entity.CLIUser) (*entity.SignedUser, error) {
 	return signedUsr, nil
 }
 
-func (u *GokUseCase) Init(token string) (*entity.Branch, error) {
+func (u *GokUseCase) Init(token string, localHead uint64) (*entity.Branch, error) {
 	var err error
 	defer func() {
 		prefix := "GokUseCase.Init"
 		if err != nil {
 			err = fmt.Errorf("%s - %w", prefix, err)
 			u.lg.Error(err.Error())
+		} else {
+			u.lg.Debug(fmt.Sprintf("%s done successfully", prefix))
 		}
 	}()
+
+	if localHead > 0 {
+		return nil, fmt.Errorf("branch already has been initiated - try pull")
+	}
 
 	brn, err := u.client.Init(u.ctx, token)
 	if err != nil {
 		return nil, err
 	}
+	u.lg.Debug(fmt.Sprintf("GokUseCase.Init - got remote branch ID %d, name %s, head %d", brn.ID, brn.Name, brn.Head))
+
+	locBrn := &entity.Branch{
+		ID:   brn.ID,
+		Head: localHead,
+	}
+
+	if brn.Head > localHead {
+		u.lg.Debug("GokUseCase.Init - branch already exists on server, doing force pull to init new local repository")
+
+		freshBrn, freshRecs, errPull := u.client.Pull(u.ctx, token, locBrn)
+		if len(freshRecs) == 0 {
+			return brn, gokErrors.ErrRecordNotFound
+		}
+		if errPull != nil {
+			return nil, errPull
+		}
+		if err = u.repo.BulkCreateUpdate(u.ctx, freshRecs); err != nil {
+			return nil, fmt.Errorf("%w - %s", gokErrors.ErrPullFailed, err)
+		}
+		return freshBrn, nil
+	}
 
 	return brn, nil
 }
 
-func (u *GokUseCase) Push(token string, branch string, head uint64) (*entity.Branch, error) {
+func (u *GokUseCase) Push(token string, brn *entity.Branch) (*entity.Branch, error) {
 	var err error
+	logPrefix := "GokUseCase.Push"
 	defer func() {
-		prefix := "GokUseCase.Push"
 		if err != nil {
-			err = fmt.Errorf("%s - %w", prefix, err)
+			err = fmt.Errorf("%s - %w", logPrefix, err)
 			u.lg.Error(err.Error())
+		} else {
+			u.lg.Debug(fmt.Sprintf("%s done successfully", logPrefix))
 		}
 	}()
 
-	recs, err := u.repo.HeadList(u.ctx, head)
+	recs, err := u.repo.HeadList(u.ctx, brn.ID, brn.Head)
 	if err != nil {
 		return nil, err
-	}
-
-	brn := &entity.Branch{
-		Name: branch,
-		Head: head,
 	}
 
 	brn, err = u.client.Push(u.ctx, token, brn, recs)
@@ -122,10 +147,11 @@ func (u *GokUseCase) Push(token string, branch string, head uint64) (*entity.Bra
 		return nil, err
 	}
 
+	u.lg.Debug(fmt.Sprintf("%s got branch: ID %d; name %s; head %d", logPrefix, brn.ID, brn.Name, brn.Head))
 	return brn, nil
 }
 
-func (u *GokUseCase) Pull(force bool, cfg *entity.CLIConf, locBrn *entity.Branch) (*entity.Branch, error) {
+func (u *GokUseCase) Pull(cfg *entity.CLIConf, locBrn *entity.Branch) (*entity.Branch, error) {
 	u.lg.Debug("doing GokUseCase.Pull")
 	var err error
 	defer func() {
@@ -152,39 +178,38 @@ func (u *GokUseCase) Pull(force bool, cfg *entity.CLIConf, locBrn *entity.Branch
 	}
 	u.lg.Debug(fmt.Sprintf("records IDs for merging: %s", ids))
 
-	// If force flag is set: just add and replace local records.
-	if force {
-		if err = u.repo.BulkCreateUpdate(u.ctx, freshRecs); err != nil {
-			return nil, fmt.Errorf("%w - %s", gokErrors.ErrPullFailed, err)
-		}
-		return freshBrn, nil
-	}
-
 	// Get local records with given ids.
 	locRecs, err := u.repo.ByIDsList(u.ctx, ids)
-	if err != nil {
+	if err != nil && err != gokErrors.ErrRecordNotFound {
 		return nil, fmt.Errorf("%w - %s", gokErrors.ErrPullFailed, err)
+	}
+	locRecsByID := make(map[entity.RecordID]*entity.Record, len(locRecs))
+	for _, v := range locRecs {
+		locRecsByID[v.ID] = v
 	}
 
 	// Do merging:
 	u.lg.Debug("GokUseCase.Pull - doing merge magic")
 	u.lg.Debug(fmt.Sprintf("local branch header: %d", locBrn.Head))
 	u.lg.Debug(fmt.Sprintf("fresh branch header: %d", freshBrn.Head))
-	for _, v := range locRecs[:1] {
-		if v.Head > locBrn.Head {
-			// Local record has been changed: have to solve merge conflict
-			err = u.resolveConflicts(cfg, freshBrn, v, freshRecsByID[v.ID])
-			if err != nil {
-				return nil, err
+	for _, v := range freshRecs {
+		// Check if server record already exists locally.
+		lv, ok := locRecsByID[v.ID]
+		if ok {
+			if lv.Head > locBrn.Head {
+				// Local record has been changed: have to solve merge conflict
+				err = u.resolveConflicts(cfg, freshBrn, lv, freshRecsByID[lv.ID])
+				if err != nil {
+					return nil, err
+				}
 			}
-		} else {
-			u.lg.Debug("local record is older than server one: just update it")
-			*v = *freshRecsByID[v.ID]
+			// Just use new record version.
 		}
+		// ... In other way new local record will be created.
 	}
 
 	// Finally write updated records to repository.
-	if err = u.repo.BulkCreateUpdate(u.ctx, locRecs); err != nil {
+	if err = u.repo.BulkCreateUpdate(u.ctx, freshRecs); err != nil {
 		return nil, fmt.Errorf("%w - %s", gokErrors.ErrPullFailed, err)
 	}
 
@@ -260,7 +285,7 @@ func (u *GokUseCase) clone(cfg *entity.CLIConf, freshBrn *entity.Branch, rec *en
 	clonedRec := entity.NewRecord(
 		cfg.Key,
 		freshBrn.Head+1, // set to server branch head +1, so record will be included in next push
-		cfg.Branch,
+		entity.BranchID(cfg.BranchID),
 		*desc,
 		time.Now(),
 		nil,
