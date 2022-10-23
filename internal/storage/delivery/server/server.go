@@ -6,15 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/ptypes/empty"
-	gokConsts "github.com/sergeysynergy/gok/internal/consts"
 	"github.com/sergeysynergy/gok/internal/entity"
 	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 	brnUC "github.com/sergeysynergy/gok/internal/storage/useCase/branch"
 	recUC "github.com/sergeysynergy/gok/internal/storage/useCase/record"
 	pb "github.com/sergeysynergy/gok/proto"
+	"github.com/sergeysynergy/gok/tool/serializers"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // StorageServer implements API points to work with `Storage` service using gRPC protocol.
@@ -82,19 +81,9 @@ func (s StorageServer) Push(ctx context.Context, in *pb.PushRequest) (*pb.PushRe
 		Head: in.Branch.Head,
 	}
 
-	records := make([]*entity.Record, 0, len(in.Records))
-	for _, v := range in.Records {
-		records = append(records, &entity.Record{
-			ID:          entity.RecordID(v.Id),
-			Head:        v.Head,
-			BranchID:    entity.BranchID(v.BranchID),
-			Description: entity.StringField(v.Description),
-			Type:        gokConsts.RecordType(v.Type),
-			UpdatedAt:   v.UpdatedAt.AsTime(),
-		})
-	}
+	recs := serializers.RecordsPBToEntity(in.Records)
 
-	brn, err := s.branch.Push(ctx, token, brn, records)
+	brn, err := s.branch.Push(ctx, token, brn, recs)
 	if err != nil {
 		return nil, err
 	}
@@ -141,17 +130,7 @@ func (s StorageServer) Pull(ctx context.Context, in *pb.PullRequest) (*pb.PullRe
 		return nil, err
 	}
 
-	recsPB := make([]*pb.Record, 0, len(recs))
-	for _, v := range recs {
-		recsPB = append(recsPB, &pb.Record{
-			Id:          string(v.ID),
-			Head:        v.Head,
-			BranchID:    uint64(v.BranchID),
-			Description: string(v.Description),
-			Type:        string(v.Type),
-			UpdatedAt:   timestamppb.New(v.UpdatedAt),
-		})
-	}
+	recsPB := serializers.RecordsEntityToPB(recs)
 
 	return &pb.PullResponse{
 		Branch: &pb.Branch{

@@ -5,17 +5,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/golang/protobuf/ptypes/empty"
-	gokConsts "github.com/sergeysynergy/gok/internal/consts"
 	"github.com/sergeysynergy/gok/internal/entity"
 	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 	pb "github.com/sergeysynergy/gok/proto"
+	"github.com/sergeysynergy/gok/tool/serializers"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"sync"
 )
 
@@ -141,7 +140,7 @@ func (c *GokClient) Init(ctx context.Context, token string) (*entity.Branch, err
 	}, nil
 }
 
-func (c *GokClient) Push(ctx context.Context, token string, brn *entity.Branch, records []*entity.Record) (*entity.Branch, error) {
+func (c *GokClient) Push(ctx context.Context, token string, brn *entity.Branch, recs []*entity.Record) (*entity.Branch, error) {
 	var err error
 	logPrefix := "GokClient.Push"
 	defer func() {
@@ -158,17 +157,7 @@ func (c *GokClient) Push(ctx context.Context, token string, brn *entity.Branch, 
 	md := metadata.New(map[string]string{"token": token})
 	ctx = metadata.NewOutgoingContext(ctx, md)
 
-	reqPB := make([]*pb.Record, 0, len(records))
-	for _, v := range records {
-		reqPB = append(reqPB, &pb.Record{
-			Id:          string(v.ID),
-			Head:        v.Head,
-			BranchID:    uint64(v.BranchID),
-			Description: string(v.Description),
-			Type:        string(v.Type),
-			UpdatedAt:   timestamppb.New(v.UpdatedAt),
-		})
-	}
+	reqsPB := serializers.RecordsEntityToPB(recs)
 
 	resp, err := storage.Push(ctx, &pb.PushRequest{
 		Branch: &pb.Branch{
@@ -176,7 +165,7 @@ func (c *GokClient) Push(ctx context.Context, token string, brn *entity.Branch, 
 			Name: brn.Name,
 			Head: brn.Head,
 		},
-		Records: reqPB,
+		Records: reqsPB,
 	})
 	if err != nil {
 		if e, ok := status.FromError(err); ok {
@@ -230,17 +219,7 @@ func (c *GokClient) Pull(ctx context.Context, token string, brn *entity.Branch) 
 		return nil, nil, err
 	}
 
-	recs := make([]*entity.Record, 0, len(resp.Records))
-	for _, v := range resp.Records {
-		recs = append(recs, &entity.Record{
-			ID:          entity.RecordID(v.Id),
-			Head:        v.Head,
-			BranchID:    entity.BranchID(v.BranchID),
-			Description: entity.StringField(v.Description),
-			Type:        gokConsts.RecordType(v.Type),
-			UpdatedAt:   v.UpdatedAt.AsTime(),
-		})
-	}
+	recs := serializers.RecordsPBToEntity(resp.Records)
 
 	return &entity.Branch{
 		ID:   entity.BranchID(resp.Branch.Id),

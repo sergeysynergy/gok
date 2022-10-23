@@ -3,6 +3,7 @@ package useCase
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"time"
 
@@ -171,10 +172,8 @@ func (u *GokUseCase) Pull(cfg *entity.CLIConf, locBrn *entity.Branch) (*entity.B
 
 	// Get records IDs and create map for later merging.
 	ids := make([]string, 0, len(freshRecs))
-	freshRecsByID := make(map[entity.RecordID]*entity.Record, len(freshRecs))
 	for _, v := range freshRecs {
 		ids = append(ids, string(v.ID))
-		freshRecsByID[v.ID] = v
 	}
 	u.lg.Debug(fmt.Sprintf("records IDs for merging: %s", ids))
 
@@ -188,24 +187,20 @@ func (u *GokUseCase) Pull(cfg *entity.CLIConf, locBrn *entity.Branch) (*entity.B
 		locRecsByID[v.ID] = v
 	}
 
-	// Do merging:
-	u.lg.Debug("GokUseCase.Pull - doing merge magic")
 	u.lg.Debug(fmt.Sprintf("local branch header: %d", locBrn.Head))
 	u.lg.Debug(fmt.Sprintf("fresh branch header: %d", freshBrn.Head))
-	for _, v := range freshRecs {
+	for _, freshRec := range freshRecs {
 		// Check if server record already exists locally.
-		lv, ok := locRecsByID[v.ID]
+		locRec, ok := locRecsByID[freshRec.ID]
 		if ok {
-			if lv.Head > locBrn.Head {
-				// Local record has been changed: have to solve merge conflict
-				err = u.resolveConflicts(cfg, freshBrn, lv, freshRecsByID[lv.ID])
+			if locRec.Head > locBrn.Head {
+				u.lg.Debug("local record has been changed: have to solve merge conflicts")
+				err = u.resolveConflicts(freshBrn, freshRec, locRec)
 				if err != nil {
 					return nil, err
 				}
 			}
-			// Just use new record version.
 		}
-		// ... In other way new local record will be created.
 	}
 
 	// Finally write updated records to repository.
@@ -217,7 +212,7 @@ func (u *GokUseCase) Pull(cfg *entity.CLIConf, locBrn *entity.Branch) (*entity.B
 	return freshBrn, nil
 }
 
-func (u *GokUseCase) resolveConflicts(cfg *entity.CLIConf, freshBrn *entity.Branch, locRec, freshRec *entity.Record) error {
+func (u *GokUseCase) resolveConflicts(freshBrn *entity.Branch, freshRec, locRec *entity.Record) error {
 	var err error
 	defer func() {
 		prefix := "GokUseCase.resolveConflicts"
@@ -243,19 +238,15 @@ func (u *GokUseCase) resolveConflicts(cfg *entity.CLIConf, freshBrn *entity.Bran
 	switch choice {
 	case 1:
 		u.lg.Debug("clone updated local record; then replace it with new server version.")
-		if err = u.clone(cfg, freshBrn, locRec); err != nil {
+		if err = u.clone(freshBrn, locRec); err != nil {
 			return fmt.Errorf("%w - %s", gokErrors.ErrResolveConflict, err)
 		}
 		*locRec = *freshRec
 	case 2:
 		u.lg.Debug("skipp all changes in local record - all changes lost; replace local record with new server version.")
-		*locRec = *freshRec
 	case 3:
-		u.lg.Debug("keep local record, ignore server version: set record head to server so record will be included in future push.")
-		locRec.Head = freshBrn.Head + 1 // set to server branch head +1, so record will be included in next push
-		if err = u.RecordSet(cfg, locRec); err != nil {
-			err = fmt.Errorf("%w - %s", gokErrors.ErrResolveConflict, err)
-		}
+		u.lg.Debug("keep local record, ignore server version: set record head to server+1 so record will be included in future push.")
+		u.keepLocal(freshBrn, freshRec, locRec)
 	default:
 		err = fmt.Errorf("invalid choice")
 		err = fmt.Errorf("%w - %s", gokErrors.ErrResolveConflict, err)
@@ -265,7 +256,7 @@ func (u *GokUseCase) resolveConflicts(cfg *entity.CLIConf, freshBrn *entity.Bran
 	return nil
 }
 
-func (u *GokUseCase) clone(cfg *entity.CLIConf, freshBrn *entity.Branch, rec *entity.Record) error {
+func (u *GokUseCase) clone(freshBrn *entity.Branch, rec *entity.Record) error {
 	var err error
 	defer func() {
 		prefix := "GokUseCase.clone"
@@ -277,26 +268,25 @@ func (u *GokUseCase) clone(cfg *entity.CLIConf, freshBrn *entity.Branch, rec *en
 		}
 	}()
 
-	descStr, err := rec.Description.Decrypt(cfg.Key)
-	if err != nil {
-		return fmt.Errorf("%w - %s", gokErrors.ErrCloningRecord, err)
+	clonedRec := &entity.Record{
+		ID:          entity.RecordID(uuid.New().String()),
+		Head:        freshBrn.Head + 1, // set to server branch head+1, so record will be included in next push
+		BranchID:    rec.BranchID,
+		Description: rec.Description,
+		UpdatedAt:   time.Now(),
+		Type:        rec.Type,
+		Extension:   rec.Extension,
 	}
-
-	desc := entity.StringField(*descStr)
-
-	clonedRec := entity.NewRecord(
-		cfg.Key,
-		freshBrn.Head+1, // set to server branch head +1, so record will be included in next push
-		entity.BranchID(cfg.BranchID),
-		desc,
-		time.Now(),
-		//rec.Type,
-		nil,
-	)
 	err = u.repo.Create(u.ctx, clonedRec)
 	if err != nil {
 		return fmt.Errorf("%w - %s", gokErrors.ErrCloningRecord, err)
 	}
 
 	return nil
+}
+
+func (u *GokUseCase) keepLocal(freshBrn *entity.Branch, freshRec, locRec *entity.Record) {
+	*freshRec = *locRec
+	freshRec.Head = freshBrn.Head + 1 // set to server branch head +1, so record will be included in next push
+	freshRec.UpdatedAt = time.Now()
 }

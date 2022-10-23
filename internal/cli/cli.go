@@ -129,7 +129,7 @@ func (c *CLI) dbConnect() {
 
 func (c *CLI) newUseCase() {
 	client := gokClient.New(c.lg, c.cfg.AuthAddr, c.cfg.StorageAddr)
-	repo := recRepo.New(c.db)
+	repo := recRepo.New(c.lg, c.db)
 	c.uc = gokUC.New(c.lg, repo, client)
 }
 
@@ -159,9 +159,15 @@ func (c *CLI) Parse() {
 	case "text":
 		c.text()
 	case "push":
-		c.push()
+		err = c.push()
+		if err != nil {
+			fmt.Println("Push failed: ", err)
+		}
 	case "pull":
-		c.pull()
+		err = c.pull()
+		if err != nil {
+			fmt.Println("Pull failed: ", err)
+		}
 	default:
 		fmt.Println(c.helpMsg)
 	}
@@ -268,10 +274,9 @@ func (c *CLI) init() (err error) {
 	return nil
 }
 
-func (c *CLI) push() {
+func (c *CLI) push() (err error) {
 	if len(c.args) > 1 {
-		fmt.Println("Too many arguments for push.")
-		return
+		return fmt.Errorf("too many arguments")
 	}
 
 	brn, err := c.uc.Push(
@@ -280,27 +285,21 @@ func (c *CLI) push() {
 	)
 	if err != nil {
 		if errors.Is(err, gokErrors.ErrLocalBranchBehind) {
-			fmt.Println("Your local branch is behind server: please make pull first to update data.")
-			return
+			return fmt.Errorf("your local branch is behind server - please make pull first to update data")
 		}
 		if errors.Is(err, gokErrors.ErrRecordNotFound) {
-			fmt.Println("No new records for push.")
-			return
+			fmt.Println("\nNo new records for push")
+			return nil
 		}
 		if errors.Is(err, gokErrors.ErrAuthRequired) {
-			fmt.Println("Authentication required: try to signin or login.")
-			return
+			return fmt.Errorf("authentication required - try to signin or login")
 		}
 
 		c.lg.Error(err.Error())
-		fmt.Println("Push failed")
-		return
+		return err
 	}
 	if brn == nil {
-		err = gokErrors.ErrPushUnknownError
-		c.lg.Error(err.Error())
-		fmt.Println("Failed to push -", err)
-		return
+		return fmt.Errorf("got nil branch")
 	}
 
 	// IMPORTANT: push was successful - update local branch head to fit server.
@@ -313,14 +312,14 @@ func (c *CLI) push() {
 	}
 
 	c.lg.Debug(fmt.Sprintf("local branch header: %d", c.cfg.LocalHead))
-	fmt.Println("Push successful.")
+	fmt.Println("\nPush successful")
+	return nil
 }
 
 // pull new records form server; force = true pulling all records from server
-func (c *CLI) pull() {
+func (c *CLI) pull() (err error) {
 	if len(c.args) > 1 {
-		fmt.Println("Too many arguments for pull.")
-		return
+		return fmt.Errorf("too many arguments")
 	}
 
 	freshBrn, err := c.uc.Pull(
@@ -329,22 +328,18 @@ func (c *CLI) pull() {
 	)
 	if err != nil {
 		if errors.Is(err, gokErrors.ErrRecordNotFound) {
-			fmt.Println("No new records for pull.")
-			return
+			fmt.Println("\nNo new records for pull.")
+			return nil
 		}
 		if errors.Is(err, gokErrors.ErrAuthRequired) {
-			fmt.Println("Authentication required: try to signin or login.")
-			return
+			return fmt.Errorf("authentication required - try to signin or login")
 		}
 
 		c.lg.Error(err.Error())
 		return
 	}
 	if freshBrn == nil {
-		err = gokErrors.ErrPullUnknownError
-		c.lg.Error(err.Error())
-		fmt.Println("Failed to pull -", err)
-		return
+		return fmt.Errorf("got nil branch")
 	}
 
 	// IMPORTANT: update local branch head to fit server.
@@ -357,5 +352,6 @@ func (c *CLI) pull() {
 	}
 
 	c.lg.Debug(fmt.Sprintf("updated local branch header: %d", c.cfg.LocalHead))
-	fmt.Println("Pull successful.")
+	fmt.Println("\nPull successful.")
+	return nil
 }
