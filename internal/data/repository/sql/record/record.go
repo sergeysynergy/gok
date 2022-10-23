@@ -128,7 +128,7 @@ func (r *Repo) BulkCreateUpdate(ctx context.Context, recs []*entity.Record) (err
 				UpdatedAt:   v.UpdatedAt,
 			}
 
-			result := tx.First(&recDB)
+			result := tx.Take(&model.Record{ID: string(v.ID)})
 			err = result.Error
 			if err != nil && err != gorm.ErrRecordNotFound {
 				return err
