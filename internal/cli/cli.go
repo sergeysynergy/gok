@@ -176,6 +176,8 @@ func (c *CLI) Parse() {
 		c.text()
 	case "pass":
 		c.pass()
+	case "card":
+		c.card()
 	default:
 		fmt.Println(c.helpMsg)
 	}

@@ -7,10 +7,10 @@ import (
 	"github.com/sergeysynergy/gok/internal/entity"
 )
 
-// Method desc provide local work with DESC record type.
+// Method pass provide local work with PASS record type.
 func (c *CLI) pass() {
 	if len(c.args) == 1 {
-		c.descLs()
+		c.passLs()
 		return
 	}
 
@@ -53,7 +53,7 @@ func (c *CLI) passAdd() (err error) {
 	}
 	err = c.uc.RecordAdd(c.cfg, rec)
 	if err != nil {
-		return fmt.Errorf("failed to add new text record - %s", err.Error())
+		return fmt.Errorf("failed to add new pass record - %s", err.Error())
 	}
 
 	return nil
@@ -107,7 +107,8 @@ func (c *CLI) passLs() (err error) {
 
 	fmt.Printf("\n")
 	for _, r := range list {
-		// Decrypt description for output.
+		// Decrypt fields for output.
+
 		desc, errDec := r.Description.Decrypt(c.cfg.Key)
 		if errDec != nil {
 			return fmt.Errorf("failed to decrypt description - %s", errDec.Error())
@@ -115,13 +116,11 @@ func (c *CLI) passLs() (err error) {
 
 		ex := r.Extension.(*entity.Pass)
 
-		//Decrypt text for output.
 		login, errDec := ex.Login.Decrypt(c.cfg.Key)
 		if errDec != nil {
 			return fmt.Errorf("failed to decrypt login - %s", errDec.Error())
 		}
 
-		//Decrypt text for output.
 		password, errDec := ex.Password.Decrypt(c.cfg.Key)
 		if errDec != nil {
 			return fmt.Errorf("failed to decrypt password - %s", errDec.Error())

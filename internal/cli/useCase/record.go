@@ -51,6 +51,10 @@ func (u *GokUseCase) RecordSet(cfg *entity.CLIConf, rec *entity.Record) error {
 		}
 	}()
 
+	if rec.ID == "" {
+		return fmt.Errorf("empty record ID given")
+	}
+
 	// Create new record to apply encryption processing.
 	updatedRec := entity.NewRecord(
 		cfg.Key,         // provide key for encryption
