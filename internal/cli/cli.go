@@ -178,6 +178,8 @@ func (c *CLI) Parse() {
 		c.pass()
 	case "card":
 		c.card()
+	case "file":
+		c.file()
 	default:
 		fmt.Println(c.helpMsg)
 	}

@@ -7,10 +7,13 @@ import (
 	"github.com/sergeysynergy/gok/internal/entity"
 )
 
-// Method desc provide local work with DESC record type.
+// Method text provide local work with TEXT record type.
 func (c *CLI) text() {
 	if len(c.args) == 1 {
-		c.descLs()
+		err := c.textLs()
+		if err != nil {
+			fmt.Println("\nText ls failed:", err)
+		}
 		return
 	}
 
@@ -30,7 +33,10 @@ func (c *CLI) text() {
 			fmt.Println("\nSuccessfully updated text record.")
 		}
 	case "ls":
-		c.textLs()
+		err := c.textLs()
+		if err != nil {
+			fmt.Println("\nText ls failed:", err)
+		}
 	default:
 		fmt.Println(c.helpMsg)
 	}
@@ -45,7 +51,6 @@ func (c *CLI) textAdd() (err error) {
 	text := c.args[3]
 	rec := &entity.Record{
 		Description: entity.StringField(desc),
-		//Type:        gokConsts.TEXT,
 		Extension: &entity.Text{
 			Text: entity.StringField(text),
 		},
@@ -69,11 +74,13 @@ func (c *CLI) textSet() (err error) {
 		return fmt.Errorf("invalid record ID - %s", err.Error())
 	}
 
+	desc := c.args[3]
+	text := c.args[4]
 	rec := &entity.Record{
 		ID:          entity.RecordID(id),
-		Description: entity.StringField(c.args[3]),
+		Description: entity.StringField(desc),
 		Extension: &entity.Text{
-			Text: entity.StringField(c.args[4]),
+			Text: entity.StringField(text),
 		},
 	}
 

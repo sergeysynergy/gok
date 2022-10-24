@@ -84,6 +84,19 @@ start working with GoK
 	text ls								List all text records
 	text set [ID] [description] [text]	Update text record by given ID
 
+	pass add [description] [login] [password]		Create new pass record
+	pass ls											List all pass records
+	pass set [ID] [description] [login] [password]	Update text record by given ID
+
+	card add [description] [number] [expired] [code] [owner]		Create new card record
+	card ls															List all cards records
+	card set [ID] [description] [number] [expired] [code] [owner]	Update text record by given ID
+
+	file add [file_path]		Create new file record
+	file ls						List all files records
+	file set [ID] [file_path]	Update file record by given ID
+	file get [ID]				Get local file copy in current directory
+
 	sync data with service
 		pull 	Fetch data from service to local database
 		push    Update remote data on service`

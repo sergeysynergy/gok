@@ -10,7 +10,10 @@ import (
 // Method desc provide local work with DESC record type.
 func (c *CLI) desc() {
 	if len(c.args) == 1 {
-		c.descLs()
+		err := c.descLs()
+		if err != nil {
+			fmt.Println("\nText ls failed:", err)
+		}
 		return
 	}
 

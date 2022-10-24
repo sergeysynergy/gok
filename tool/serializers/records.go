@@ -35,7 +35,7 @@ func RecordPBToEntity(in *pb.Record) *entity.Record {
 		}
 	case string(gokConsts.FILE):
 		rec.Extension = &entity.File{
-			File: entity.StringField(in.File.File),
+			File: in.File.File,
 		}
 	}
 
@@ -79,7 +79,7 @@ func RecordEntityToPB(in *entity.Record) *pb.Record {
 		}
 	case gokConsts.FILE:
 		recPB.File = &pb.File{
-			File: string(in.Extension.(*entity.File).File),
+			File: in.Extension.(*entity.File).File,
 		}
 	}
 

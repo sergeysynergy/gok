@@ -39,4 +39,5 @@ type UseCase interface {
 	RecordAdd(*entity.CLIConf, *entity.Record) error
 	RecordSet(*entity.CLIConf, *entity.Record) error
 	RecordList(conf *entity.CLIConf, recType gokConsts.RecordType) ([]*entity.Record, error)
+	RecordGet(entity.RecordID) (*entity.Record, error)
 }

@@ -21,6 +21,7 @@ var (
 	ErrRecordNotFound             = errors.New("record not found")
 	ErrRecordAlreadyExists        = errors.New("record already exists")
 	ErrRecordUnknownExtensionType = errors.New("unknown extension type for record")
+	ErrRecordEmptyID              = errors.New("empty record ID given")
 
 	ErrLocalBranchBehind = errors.New("local branch is behind server")
 

@@ -2,6 +2,7 @@ package useCase
 
 import (
 	"fmt"
+	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 	"time"
 
 	gokConsts "github.com/sergeysynergy/gok/internal/consts"
@@ -52,7 +53,7 @@ func (u *GokUseCase) RecordSet(cfg *entity.CLIConf, rec *entity.Record) error {
 	}()
 
 	if rec.ID == "" {
-		return fmt.Errorf("empty record ID given")
+		return gokErrors.ErrRecordEmptyID
 	}
 
 	// Create new record to apply encryption processing.
@@ -94,4 +95,30 @@ func (u *GokUseCase) RecordList(cfg *entity.CLIConf, recType gokConsts.RecordTyp
 	}
 
 	return list, nil
+}
+
+// RecordGet read record from repository.
+func (u *GokUseCase) RecordGet(id entity.RecordID) (*entity.Record, error) {
+	var err error
+	logPrefix := "GokUseCase.RecordGet"
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%s - %w", logPrefix, err)
+			u.lg.Error(err.Error())
+		} else {
+			u.lg.Debug(fmt.Sprintf("%s done successfully", logPrefix))
+		}
+	}()
+
+	if id == "" {
+		return nil, gokErrors.ErrRecordEmptyID
+	}
+
+	rec, err := u.repo.Read(u.ctx, id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return rec, nil
 }

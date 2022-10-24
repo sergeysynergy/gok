@@ -7,12 +7,12 @@ import (
 // File is extension for basic record type to store binary data.
 type File struct {
 	ID   string `gorm:"primaryKey;not null"`
-	File string `gorm:"not null"`
+	File []byte `gorm:"not null"`
 }
 
 func (m *File) DomainBind() *entity.File {
 	return &entity.File{
 		ID:   entity.RecordID(m.ID),
-		File: entity.StringField(m.File),
+		File: m.File,
 	}
 }

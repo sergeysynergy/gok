@@ -78,7 +78,7 @@ func (r *Repo) create(tx *gorm.DB, rec *entity.Record) (err error) {
 	case *entity.File:
 		fileDB := model.File{
 			ID:   string(rec.ID), // always using base record ID
-			File: string(ex.File),
+			File: ex.File,
 		}
 		err = tx.Create(&fileDB).Error
 		if err != nil {
@@ -104,8 +104,28 @@ func (r *Repo) Create(ctx context.Context, rec *entity.Record) (err error) {
 	return nil
 }
 
-func (r *Repo) Read(_ context.Context, _ entity.RecordID) (*entity.Record, error) {
-	return nil, nil
+func (r *Repo) Read(ctx context.Context, id entity.RecordID) (*entity.Record, error) {
+	tx := r.db.WithContext(ctx)
+	recDB := &model.Record{ID: string(id)}
+	err := tx.Take(&recDB).Error
+	if err != nil {
+		return nil, err
+	}
+	rec := recDB.DomainBind()
+
+	switch rec.Type {
+	case gokConsts.FILE:
+		fileDB := model.File{
+			ID: string(id), // always using base record ID
+		}
+		err = tx.Take(&fileDB).Error
+		if err != nil {
+			return nil, err
+		}
+		rec.Extension = fileDB.DomainBind()
+	}
+
+	return rec, nil
 }
 
 // update method provides creating record using different transactions
@@ -185,7 +205,7 @@ func (r *Repo) update(tx *gorm.DB, rec *entity.Record) (err error) {
 	case *entity.File:
 		fileDB := model.File{
 			ID:   string(rec.ID), // always using base record ID
-			File: string(ex.File),
+			File: ex.File,
 		}
 		result = tx.Model(&fileDB).Updates(&fileDB)
 		err = result.Error

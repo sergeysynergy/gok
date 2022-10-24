@@ -37,8 +37,7 @@ message Card {
 }
 
 message File {
-//  bytes file = 1;
-  string file = 1;
+  bytes file = 1;
 }
 
 message Record {

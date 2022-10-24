@@ -11,7 +11,10 @@ import (
 // Method card provide local work with CARD record type.
 func (c *CLI) card() {
 	if len(c.args) == 1 {
-		c.cardLs()
+		err := c.cardLs()
+		if err != nil {
+			fmt.Println("\nText ls failed:", err)
+		}
 		return
 	}
 
@@ -31,7 +34,10 @@ func (c *CLI) card() {
 			fmt.Println("\nSuccessfully updated card record.")
 		}
 	case "ls":
-		c.cardLs()
+		err := c.cardLs()
+		if err != nil {
+			fmt.Println("\nText ls failed:", err)
+		}
 	default:
 		fmt.Println(c.helpMsg)
 	}

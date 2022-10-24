@@ -10,7 +10,10 @@ import (
 // Method pass provide local work with PASS record type.
 func (c *CLI) pass() {
 	if len(c.args) == 1 {
-		c.passLs()
+		err := c.passLs()
+		if err != nil {
+			fmt.Println("\nText ls failed:", err)
+		}
 		return
 	}
 
@@ -30,7 +33,10 @@ func (c *CLI) pass() {
 			fmt.Println("\nSuccessfully updated pass record.")
 		}
 	case "ls":
-		c.passLs()
+		err := c.passLs()
+		if err != nil {
+			fmt.Println("\nText ls failed:", err)
+		}
 	default:
 		fmt.Println(c.helpMsg)
 	}
