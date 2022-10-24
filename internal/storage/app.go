@@ -76,6 +76,9 @@ func (a *App) dbConnect() {
 			&model.Branch{},
 			&gokModel.Record{},
 			&gokModel.Text{},
+			&gokModel.Pass{},
+			&gokModel.Card{},
+			&gokModel.File{},
 		)
 		if err != nil {
 			a.lg.Fatal(fmt.Sprintf("Auto migration has failed: %s", err))

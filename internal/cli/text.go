@@ -79,7 +79,7 @@ func (c *CLI) textSet() (err error) {
 
 	err = c.uc.RecordSet(c.cfg, rec)
 	if err != nil {
-		return fmt.Errorf("failed to update description record - %s", err.Error())
+		return fmt.Errorf("failed to update text record - %s", err.Error())
 	}
 
 	return nil
@@ -87,7 +87,7 @@ func (c *CLI) textSet() (err error) {
 
 func (c *CLI) textLs() (err error) {
 	if len(c.args) > 2 {
-		return fmt.Errorf("invalid arguments for `desc ls`")
+		return fmt.Errorf("invalid arguments for `text ls`")
 	}
 
 	list, err := c.uc.RecordList(c.cfg, gokConsts.TEXT)

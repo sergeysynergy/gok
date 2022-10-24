@@ -31,13 +31,14 @@ message Pass {
 
 message Card {
   uint64 number = 1;
-  string expired = 2;
-  int32 code = 3;
+  uint64 code = 2;
+  string expired = 3;
   string owner = 4;
 }
 
 message File {
-  bytes file = 1;
+//  bytes file = 1;
+  string file = 1;
 }
 
 message Record {

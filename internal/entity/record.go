@@ -37,7 +37,6 @@ func NewRecord(
 		BranchID:    branchID,
 		Description: description,
 		UpdatedAt:   updatedAt,
-		//Type:        recType,
 	}
 	r.genID()
 
@@ -51,10 +50,19 @@ func NewRecord(
 	case *Text:
 		r.Type = gokConsts.TEXT
 		r.Extension = NewText(key, r.ID, ex.Text)
+	case *Pass:
+		r.Type = gokConsts.PASS
+		r.Extension = NewPass(key, r.ID, ex.Login, ex.Password)
+	case *Card:
+		r.Type = gokConsts.CARD
+		r.Extension = NewCard(key, r.ID, ex.Number, ex.Code, ex.Expired, ex.Owner)
+	case *File:
+		r.Type = gokConsts.FILE
+		r.Extension = NewFile(key, r.ID, ex.File)
 	default:
 		// For default description type - extension should be nil.
 		if extension != nil {
-			log.Fatalln("Unknown record type")
+			log.Fatalln("entity.Record - unknown record type")
 		}
 		r.Type = gokConsts.DESC
 	}
@@ -82,11 +90,22 @@ func (r *Record) genID() {
 
 type StringField string
 
-func (d *StringField) Encrypt(key string) error {
+func (f *StringField) Encrypt(key string) error {
 	return nil
 }
 
-func (d *StringField) Decrypt(key string) (*string, error) {
-	res := string(*d)
+func (f *StringField) Decrypt(key string) (*string, error) {
+	res := string(*f)
+	return &res, nil
+}
+
+type NumberField uint64
+
+func (f *NumberField) Encrypt(key string) error {
+	return nil
+}
+
+func (f *NumberField) Decrypt(key string) (*uint64, error) {
+	res := uint64(*f)
 	return &res, nil
 }

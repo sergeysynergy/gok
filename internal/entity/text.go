@@ -1,6 +1,6 @@
 package entity
 
-// Text is basic type for all secret data.
+// Text is extension for basic record type with text string type.
 type Text struct {
 	ID   RecordID
 	Text StringField

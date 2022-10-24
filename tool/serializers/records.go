@@ -21,6 +21,22 @@ func RecordPBToEntity(in *pb.Record) *entity.Record {
 		rec.Extension = &entity.Text{
 			Text: entity.StringField(in.Text.Text),
 		}
+	case string(gokConsts.PASS):
+		rec.Extension = &entity.Pass{
+			Login:    entity.StringField(in.Pass.Login),
+			Password: entity.StringField(in.Pass.Password),
+		}
+	case string(gokConsts.CARD):
+		rec.Extension = &entity.Card{
+			Number:  entity.NumberField(in.Card.Number),
+			Code:    entity.NumberField(in.Card.Code),
+			Expired: entity.StringField(in.Card.Expired),
+			Owner:   entity.StringField(in.Card.Owner),
+		}
+	case string(gokConsts.FILE):
+		rec.Extension = &entity.File{
+			File: entity.StringField(in.File.File),
+		}
 	}
 
 	return rec
@@ -48,6 +64,22 @@ func RecordEntityToPB(in *entity.Record) *pb.Record {
 	case gokConsts.TEXT:
 		recPB.Text = &pb.Text{
 			Text: string(in.Extension.(*entity.Text).Text),
+		}
+	case gokConsts.PASS:
+		recPB.Pass = &pb.Pass{
+			Login:    string(in.Extension.(*entity.Pass).Login),
+			Password: string(in.Extension.(*entity.Pass).Password),
+		}
+	case gokConsts.CARD:
+		recPB.Card = &pb.Card{
+			Number:  uint64(in.Extension.(*entity.Card).Number),
+			Code:    uint64(in.Extension.(*entity.Card).Code),
+			Expired: string(in.Extension.(*entity.Card).Expired),
+			Owner:   string(in.Extension.(*entity.Card).Owner),
+		}
+	case gokConsts.FILE:
+		recPB.File = &pb.File{
+			File: string(in.Extension.(*entity.File).File),
 		}
 	}
 

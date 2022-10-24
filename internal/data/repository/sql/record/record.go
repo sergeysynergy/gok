@@ -53,6 +53,37 @@ func (r *Repo) create(tx *gorm.DB, rec *entity.Record) (err error) {
 		if err != nil {
 			return err
 		}
+	case *entity.Pass:
+		passDB := model.Pass{
+			ID:       string(rec.ID), // always using base record ID
+			Login:    string(ex.Login),
+			Password: string(ex.Password),
+		}
+		err = tx.Create(&passDB).Error
+		if err != nil {
+			return err
+		}
+	case *entity.Card:
+		cardDB := model.Card{
+			ID:      string(rec.ID), // always using base record ID
+			Number:  uint64(ex.Number),
+			Code:    uint64(ex.Code),
+			Expired: string(ex.Expired),
+			Owner:   string(ex.Owner),
+		}
+		err = tx.Create(&cardDB).Error
+		if err != nil {
+			return err
+		}
+	case *entity.File:
+		fileDB := model.File{
+			ID:   string(rec.ID), // always using base record ID
+			File: string(ex.File),
+		}
+		err = tx.Create(&fileDB).Error
+		if err != nil {
+			return err
+		}
 	default:
 		if ex != nil {
 			return gokErrors.ErrRecordUnknownExtensionType
@@ -115,6 +146,58 @@ func (r *Repo) update(tx *gorm.DB, rec *entity.Record) (err error) {
 				return err
 			}
 		}
+	case *entity.Pass:
+		passDB := model.Pass{
+			ID:       string(rec.ID), // always using base record ID
+			Login:    string(ex.Login),
+			Password: string(ex.Password),
+		}
+		result = tx.Model(&passDB).Updates(&passDB)
+		err = result.Error
+		if err != nil {
+			return err
+		}
+		if result.RowsAffected == 0 {
+			err = tx.Create(&passDB).Error
+			if err != nil {
+				return err
+			}
+		}
+	case *entity.Card:
+		cardDB := model.Card{
+			ID:      string(rec.ID), // always using base record ID
+			Number:  uint64(ex.Number),
+			Code:    uint64(ex.Code),
+			Expired: string(ex.Expired),
+			Owner:   string(ex.Owner),
+		}
+		result = tx.Model(&cardDB).Updates(&cardDB)
+		err = result.Error
+		if err != nil {
+			return err
+		}
+		if result.RowsAffected == 0 {
+			err = tx.Create(&cardDB).Error
+			if err != nil {
+				return err
+			}
+		}
+	case *entity.File:
+		fileDB := model.File{
+			ID:   string(rec.ID), // always using base record ID
+			File: string(ex.File),
+		}
+		result = tx.Model(&fileDB).Updates(&fileDB)
+		err = result.Error
+		if err != nil {
+			return err
+		}
+		if result.RowsAffected == 0 {
+			err = tx.Create(&fileDB).Error
+			if err != nil {
+				return err
+			}
+		}
 	default:
 		if ex != nil {
 			return gokErrors.ErrRecordUnknownExtensionType
@@ -149,6 +232,27 @@ func (r *Repo) addExtension(ctx context.Context, rec *entity.Record) (err error)
 			return err
 		}
 		rec.Extension = textDB.DomainBind()
+	case gokConsts.PASS:
+		passDB := &model.Pass{ID: string(rec.ID)} // always using base record ID
+		err = tx.Take(&passDB).Error
+		if err != nil {
+			return err
+		}
+		rec.Extension = passDB.DomainBind()
+	case gokConsts.CARD:
+		cardDB := &model.Card{ID: string(rec.ID)} // always using base record ID
+		err = tx.Take(&cardDB).Error
+		if err != nil {
+			return err
+		}
+		rec.Extension = cardDB.DomainBind()
+	case gokConsts.FILE:
+		fileDB := &model.File{ID: string(rec.ID)} // always using base record ID
+		err = tx.Take(&fileDB).Error
+		if err != nil {
+			return err
+		}
+		rec.Extension = fileDB.DomainBind()
 	default:
 		return gokErrors.ErrRecordUnknownExtensionType
 	}

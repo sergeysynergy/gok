@@ -117,7 +117,13 @@ func (c *CLI) dbConnect() {
 		}
 
 		// Create and migrate database tables.
-		err = db.AutoMigrate(&model.Record{}, &model.Text{})
+		err = db.AutoMigrate(
+			&model.Record{},
+			&model.Text{},
+			&model.Pass{},
+			&model.Card{},
+			&model.File{},
+		)
 		if err != nil {
 			c.lg.Fatal(fmt.Sprintf("auto migration has failed: %s", err))
 		}
@@ -154,10 +160,6 @@ func (c *CLI) Parse() {
 		} else {
 			fmt.Println("\nBranch has been successfully initiated. Now it's time to add some secrets!")
 		}
-	case "desc":
-		c.desc()
-	case "text":
-		c.text()
 	case "push":
 		err = c.push()
 		if err != nil {
@@ -168,6 +170,12 @@ func (c *CLI) Parse() {
 		if err != nil {
 			fmt.Println("Pull failed: ", err)
 		}
+	case "desc":
+		c.desc()
+	case "text":
+		c.text()
+	case "pass":
+		c.pass()
 	default:
 		fmt.Println(c.helpMsg)
 	}
