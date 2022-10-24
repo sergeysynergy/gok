@@ -19,7 +19,7 @@ func New(db *gorm.DB) *Repo {
 	return r
 }
 
-func (r *Repo) CreateRead(ctx context.Context, brn *entity.Branch) (branch *entity.Branch, err error) {
+func (r *Repo) CreateReadByName(ctx context.Context, brn *entity.Branch) (branch *entity.Branch, err error) {
 	tx := r.db.WithContext(ctx)
 
 	brnDB := model.Branch{
@@ -43,12 +43,8 @@ func (r *Repo) CreateRead(ctx context.Context, brn *entity.Branch) (branch *enti
 func (r *Repo) Read(ctx context.Context, brn *entity.Branch) (branch *entity.Branch, err error) {
 	tx := r.db.WithContext(ctx)
 
-	brnDB := model.Branch{
-		UserID: uint32(brn.UserID),
-		Name:   brn.Name,
-	}
-
-	result := tx.Where("user_id = ? AND name = ?", brn.UserID, brn.Name).Take(&brnDB)
+	brnDB := model.Branch{}
+	result := tx.Where("user_id = ? AND id = ?", brn.UserID, brn.ID).Take(&brnDB)
 	err = result.Error
 	if err != nil {
 		return nil, err
@@ -61,12 +57,11 @@ func (r *Repo) Update(ctx context.Context, brn *entity.Branch) error {
 	tx := r.db.WithContext(ctx)
 
 	brnDB := model.Branch{
-		UserID:     uint32(brn.UserID),
 		Name:       brn.Name,
 		ServerHead: brn.Head,
 	}
 
-	result := tx.Where("user_id = ? AND name = ?", brn.UserID, brn.Name).Updates(&brnDB)
+	result := tx.Where("user_id = ? AND id = ?", brn.UserID, brn.ID).Updates(&brnDB)
 	err := result.Error
 	if err != nil {
 		return err

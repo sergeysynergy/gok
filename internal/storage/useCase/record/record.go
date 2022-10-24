@@ -43,17 +43,17 @@ func (u *UseCaseForRecord) BulkCreateUpdate(ctx context.Context, recs []*entity.
 	return nil
 }
 
-func (u *UseCaseForRecord) HeadList(ctx context.Context, head uint64) ([]*entity.Record, error) {
+func (u *UseCaseForRecord) HeadList(ctx context.Context, brnID entity.BranchID, head uint64) ([]*entity.Record, error) {
 	var err error
 	defer func() {
 		if err != nil {
-			errPrefix := "UseCaseForRecord.BulkCreateUpdate"
+			errPrefix := "UseCaseForRecord.HeadList"
 			err = fmt.Errorf("%s - %w", errPrefix, err)
 			u.lg.Error(err.Error())
 		}
 	}()
 
-	recs, err := u.repo.HeadList(ctx, head)
+	recs, err := u.repo.HeadList(ctx, brnID, head)
 	if err != nil {
 		return nil, err
 	}

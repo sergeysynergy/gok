@@ -9,8 +9,8 @@ import (
 type Repo interface {
 	Read(context.Context, *entity.Branch) (*entity.Branch, error)
 	Update(context.Context, *entity.Branch) error
-	// CreateRead create new branch record or read existing one.
-	CreateRead(context.Context, *entity.Branch) (*entity.Branch, error)
+	// CreateReadByName create new branch record or read existing one for given name.
+	CreateReadByName(context.Context, *entity.Branch) (*entity.Branch, error)
 }
 
 type UseCase interface {

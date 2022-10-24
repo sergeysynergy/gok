@@ -11,19 +11,19 @@ import (
 type Record struct {
 	ID          string    `gorm:"primaryKey;not null"`
 	Head        uint64    `gorm:"not null"`
-	Branch      string    `gorm:"not null"`
+	BranchID    uint64    `gorm:"not null"`
 	Description string    `gorm:"not null"`
-	Type        string    `gorm:"not null"`
 	UpdatedAt   time.Time `gorm:"not null"`
+	Type        string    `gorm:"not null"`
 }
 
 func (r *Record) DomainBind() *entity.Record {
 	return &entity.Record{
 		ID:          entity.RecordID(r.ID),
 		Head:        r.Head,
-		Branch:      r.Branch,
-		Description: entity.Description(r.Description),
-		Type:        gokConsts.RecordType(r.Type),
+		BranchID:    entity.BranchID(r.BranchID),
+		Description: entity.StringField(r.Description),
 		UpdatedAt:   r.UpdatedAt,
+		Type:        gokConsts.RecordType(r.Type),
 	}
 }

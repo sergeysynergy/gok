@@ -1,14 +1,12 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"io/ioutil"
 	"os"
 	"sync"
 
@@ -20,90 +18,13 @@ import (
 	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 )
 
-// Config for GoK CLI:
-// AuthAddr - Auth service gRPC API address;
-// StorageAddr - Storage service gRPC API address;
-// Token - user auth token;
-// Key - user key used to encrypt data.
-type Config struct {
-	mu       sync.RWMutex
-	filename string
-
-	AuthAddr    string `json:"auth_addr"`
-	StorageAddr string `json:"storage_addr"`
-	Token       string `json:"token"`
-	Key         string `json:"key"`
-	Branch      string `json:"branch"`
-	LocalHead   uint64 `json:"head"`
-}
-
-func NewConf(filename string) *Config {
-	const (
-		defaultAuthAddr    = ":7000"
-		defaultStorageAddr = ":7001"
-	)
-	cfg := &Config{
-		AuthAddr:    defaultAuthAddr,
-		StorageAddr: defaultStorageAddr,
-		filename:    filename,
-	}
-
-	// Trying to read config file.
-	if err := cfg.Read(); err != nil {
-		fmt.Println("Failed to read config file -", err.Error())
-	}
-
-	return cfg
-}
-
-// Write config struct to json file.
-func (c *Config) Write() error {
-	// TODO: rewrite config saving service addresses.
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	jsonString, _ := json.Marshal(c)
-	err := ioutil.WriteFile(c.filename, jsonString, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Read config struct from json file.
-func (c *Config) Read() error {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	data, err := os.ReadFile(c.filename)
-	if err != nil {
-		return fmt.Errorf("error when opening file: %w", err)
-	}
-
-	var cfg Config
-	err = json.Unmarshal(data, &cfg)
-	if err != nil {
-		return fmt.Errorf("error during Unmarshal(): %w", err)
-	}
-
-	c.AuthAddr = cfg.AuthAddr
-	c.StorageAddr = cfg.StorageAddr
-	c.Token = cfg.Token
-	c.Key = cfg.Key
-	c.Branch = cfg.Branch
-	c.LocalHead = cfg.LocalHead
-
-	return nil
-}
-
 // CLI contains argument values and methods for command line processing.
 type CLI struct {
 	lg *zap.Logger
 	// Help message
 	helpMsg string
 	// Config for CLI.
-	cfg *Config
+	cfg *entity.CLIConf
 	// Directory to store GoK local files.
 	home string
 	// Username
@@ -111,7 +32,7 @@ type CLI struct {
 	// All CLI arguments goes after flags arguments.
 	args []string
 	// gRPC client to access GoK API.
-	client *gokClient.Client
+	client *gokClient.GokClient
 	// Use cases to work with GoK API.
 	uc gokUC.UseCase
 	// Database creds.
@@ -153,7 +74,7 @@ func (c *CLI) initCLI() {
 
 	// Init GoK user config or read existing one from file.
 	filename := c.home + "/.gok/config.json"
-	c.cfg = NewConf(filename)
+	c.cfg = entity.NewCLIConf(filename)
 
 	c.dbConnect()
 	c.newUseCase()
@@ -164,7 +85,7 @@ func (c *CLI) parsePreCommandsArgs() error {
 	c.home, _ = os.LookupEnv("HOME")
 	c.user, _ = os.LookupEnv("USER")
 
-	flag.StringVar(&c.home, "h", c.home, "set home directory where GoK will store its files")
+	flag.StringVar(&c.home, "hm", c.home, "set home directory where GoK will store its files")
 	flag.StringVar(&c.user, "u", c.user, "set GoK user")
 	flag.Parse()
 
@@ -196,7 +117,13 @@ func (c *CLI) dbConnect() {
 		}
 
 		// Create and migrate database tables.
-		err = db.AutoMigrate(&model.Record{})
+		err = db.AutoMigrate(
+			&model.Record{},
+			&model.Text{},
+			&model.Pass{},
+			&model.Card{},
+			&model.File{},
+		)
 		if err != nil {
 			c.lg.Fatal(fmt.Sprintf("auto migration has failed: %s", err))
 		}
@@ -208,7 +135,7 @@ func (c *CLI) dbConnect() {
 
 func (c *CLI) newUseCase() {
 	client := gokClient.New(c.lg, c.cfg.AuthAddr, c.cfg.StorageAddr)
-	repo := recRepo.New(c.db)
+	repo := recRepo.New(c.lg, c.db)
 	c.uc = gokUC.New(c.lg, repo, client)
 }
 
@@ -220,19 +147,39 @@ func (c *CLI) Parse() {
 		return
 	}
 
+	var err error
 	switch c.args[0] {
 	case "signin":
 		c.signIn()
 	case "login":
 		c.login()
 	case "init":
-		c.init()
+		err = c.init()
+		if err != nil {
+			fmt.Println("Init failed: ", err)
+		} else {
+			fmt.Println("\nBranch has been successfully initiated. Now it's time to add some secrets!")
+		}
+	case "push":
+		err = c.push()
+		if err != nil {
+			fmt.Println("Push failed: ", err)
+		}
+	case "pull":
+		err = c.pull()
+		if err != nil {
+			fmt.Println("Pull failed: ", err)
+		}
 	case "desc":
 		c.desc()
-	case "push":
-		c.push()
-	case "pull":
-		c.pull()
+	case "text":
+		c.text()
+	case "pass":
+		c.pass()
+	case "card":
+		c.card()
+	case "file":
+		c.file()
 	default:
 		fmt.Println(c.helpMsg)
 	}
@@ -308,70 +255,67 @@ func (c *CLI) login() {
 }
 
 // Method init add or get branch info and store it locally in config file.
-func (c *CLI) init() {
-	if len(c.args) > 1 {
-		fmt.Println("Invalid argument: home and user enough to execute init... so far.")
-		return
-	}
-
-	brn, err := c.uc.Init(c.cfg.Token)
-	if err != nil {
-		if errors.Is(err, gokErrors.ErrAuthRequired) {
-			fmt.Println("Authentication required: try to signin or login.")
+func (c *CLI) init() (err error) {
+	defer func() {
+		prefix := "CLI.init"
+		if err != nil {
+			msg := fmt.Errorf("%s - %w", prefix, err).Error()
+			c.lg.Error(msg)
 		} else {
-			c.lg.Error(err.Error())
+			c.lg.Debug(fmt.Sprintf("%s done successfully", prefix))
 		}
+	}()
+
+	if len(c.args) > 1 {
+		err = fmt.Errorf("invalid argument: home and user enough to execute init... so far")
 		return
 	}
 
-	c.cfg.Branch = brn.Name
-
-	if brn.Head > c.cfg.LocalHead {
-		c.cfg.LocalHead = brn.Head
-		// TODO: add git pull command
+	// TODO: add branch switching, now just using `default` branch
+	brn, err := c.uc.Init(c.cfg.Token, c.cfg.LocalHead)
+	if err != nil && !errors.Is(err, gokErrors.ErrRecordNotFound) {
+		return
 	}
-
+	c.cfg.BranchID = uint64(brn.ID)
+	c.cfg.LocalHead = brn.Head
 	if err = c.cfg.Write(); err != nil {
-		c.lg.Error(err.Error())
 		return
 	}
 
-	fmt.Println("Branch `" + brn.Name + "` has been successfully initiated. Now it's time to add some secrets!")
+	c.lg.Debug(fmt.Sprintf("CLI.init - local branch now: ID %d, name %s, head %d", brn.ID, brn.Name, brn.Head))
+	return nil
 }
 
-func (c *CLI) push() {
+func (c *CLI) push() (err error) {
 	if len(c.args) > 1 {
-		fmt.Println("Too many arguments for push.")
-		return
+		return fmt.Errorf("too many arguments")
 	}
 
-	brn, err := c.uc.Push(c.cfg.Token, c.cfg.Branch, c.cfg.LocalHead)
+	brn, err := c.uc.Push(
+		c.cfg.Token,
+		&entity.Branch{ID: entity.BranchID(c.cfg.BranchID), Head: c.cfg.LocalHead},
+	)
 	if err != nil {
 		if errors.Is(err, gokErrors.ErrLocalBranchBehind) {
-			fmt.Println("Your local branch is behind server: please make pull first to update data.")
-			return
+			return fmt.Errorf("your local branch is behind server - please make pull first to update data")
 		}
 		if errors.Is(err, gokErrors.ErrRecordNotFound) {
-			fmt.Println("No new records for push.")
-			return
+			fmt.Println("\nNo new records for push")
+			return nil
 		}
 		if errors.Is(err, gokErrors.ErrAuthRequired) {
-			fmt.Println("Authentication required: try to signin or login.")
-			return
+			return fmt.Errorf("authentication required - try to signin or login")
 		}
 
 		c.lg.Error(err.Error())
-		return
+		return err
 	}
 	if brn == nil {
-		err = gokErrors.ErrPushUnknownError
-		c.lg.Error(err.Error())
-		fmt.Println("Failed to push -", err)
-		return
+		return fmt.Errorf("got nil branch")
 	}
 
-	// Update local branch head to fit server.
-	if brn.Head > c.cfg.LocalHead && brn.Name == c.cfg.Branch {
+	// IMPORTANT: push was successful - update local branch head to fit server.
+	if brn.Head > c.cfg.LocalHead && brn.ID == entity.BranchID(c.cfg.BranchID) {
 		c.cfg.LocalHead = brn.Head
 		if err = c.cfg.Write(); err != nil {
 			c.lg.Error(err.Error())
@@ -380,45 +324,46 @@ func (c *CLI) push() {
 	}
 
 	c.lg.Debug(fmt.Sprintf("local branch header: %d", c.cfg.LocalHead))
-	fmt.Println("Push successful.")
+	fmt.Println("\nPush successful")
+	return nil
 }
 
-func (c *CLI) pull() {
+// pull new records form server; force = true pulling all records from server
+func (c *CLI) pull() (err error) {
 	if len(c.args) > 1 {
-		fmt.Println("Too many arguments for pull.")
-		return
+		return fmt.Errorf("too many arguments")
 	}
 
-	freshBrn, err := c.uc.Pull(c.cfg.Token, c.cfg.Branch, c.cfg.LocalHead)
+	freshBrn, err := c.uc.Pull(
+		c.cfg,
+		&entity.Branch{ID: entity.BranchID(c.cfg.BranchID), Head: c.cfg.LocalHead},
+	)
 	if err != nil {
 		if errors.Is(err, gokErrors.ErrRecordNotFound) {
-			fmt.Println("No new records for pull.")
-			return
+			fmt.Println("\nNo new records for pull.")
+			return nil
 		}
 		if errors.Is(err, gokErrors.ErrAuthRequired) {
-			fmt.Println("Authentication required: try to signin or login.")
-			return
+			return fmt.Errorf("authentication required - try to signin or login")
 		}
 
 		c.lg.Error(err.Error())
 		return
 	}
 	if freshBrn == nil {
-		err = gokErrors.ErrPullUnknownError
-		c.lg.Error(err.Error())
-		fmt.Println("Failed to pull -", err)
-		return
+		return fmt.Errorf("got nil branch")
 	}
 
-	// Update local branch head to fit server.
-	//if freshBrn.Head > c.cfg.LocalHead && freshBrn.Name == c.cfg.Branch {
-	//	c.cfg.LocalHead = freshBrn.Head
-	//	if err = c.cfg.Write(); err != nil {
-	//		c.lg.Error(err.Error())
-	//		return
-	//	}
-	//}
+	// IMPORTANT: update local branch head to fit server.
+	if freshBrn.Head > c.cfg.LocalHead && freshBrn.ID == entity.BranchID(c.cfg.BranchID) {
+		c.cfg.LocalHead = freshBrn.Head
+		if err = c.cfg.Write(); err != nil {
+			c.lg.Error(err.Error())
+			return
+		}
+	}
 
-	c.lg.Debug(fmt.Sprintf("local branch header: %d", c.cfg.LocalHead))
-	fmt.Println("Pull successful.")
+	c.lg.Debug(fmt.Sprintf("updated local branch header: %d", c.cfg.LocalHead))
+	fmt.Println("\nPull successful.")
+	return nil
 }

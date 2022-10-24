@@ -72,7 +72,14 @@ func (a *App) dbConnect() {
 		}
 
 		// Create and migrate database tables.
-		err = db.AutoMigrate(&model.Branch{}, &gokModel.Record{})
+		err = db.AutoMigrate(
+			&model.Branch{},
+			&gokModel.Record{},
+			&gokModel.Text{},
+			&gokModel.Pass{},
+			&gokModel.Card{},
+			&gokModel.File{},
+		)
 		if err != nil {
 			a.lg.Fatal(fmt.Sprintf("Auto migration has failed: %s", err))
 		}
@@ -93,7 +100,7 @@ func (a *App) initAuthClient() {
 }
 
 func (a *App) initUseCases() {
-	recordRepo := recRepo.New(a.db)
+	recordRepo := recRepo.New(a.lg, a.db)
 	a.record = recUC.New(a.lg, recordRepo)
 
 	branchRepo := brnRepo.New(a.db)
@@ -104,7 +111,7 @@ func (a *App) initUseCases() {
 func (a *App) initGRPCServer() {
 	// Create gRPC service server with interceptors.
 	a.grpcServer = grpc.NewServer(
-		//grpc.UnaryInterceptor(ServerGRPC.UnaryEncrypt),
+	//grpc.UnaryInterceptor(ServerGRPC.UnaryEncrypt),
 	)
 
 	// Register our service with realization for protobuf methods.
