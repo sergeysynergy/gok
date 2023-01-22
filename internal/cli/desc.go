@@ -1,40 +1,50 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	gokConsts "github.com/sergeysynergy/gok/internal/consts"
-	"time"
-
 	"github.com/sergeysynergy/gok/internal/entity"
-	gokErrors "github.com/sergeysynergy/gok/internal/errors"
 )
 
 // Method desc provide local work with DESC record type.
 func (c *CLI) desc() {
 	if len(c.args) == 1 {
-		c.descLs()
+		err := c.descLs()
+		if err != nil {
+			fmt.Println("\nText ls failed:", err)
+		}
 		return
 	}
 
 	switch c.args[1] {
 	case "add":
-		c.descAdd()
+		err := c.descAdd()
+		if err != nil {
+			fmt.Println("\nDesc add failed:", err)
+		} else {
+			fmt.Println("\nSuccessfully added new description record")
+		}
 	case "set":
-		c.descSet()
-	case "get":
+		err := c.descSet()
+		if err != nil {
+			fmt.Println("\nDesc set failed:", err)
+		} else {
+			fmt.Println("\nSuccessfully updated description record.")
+		}
 	case "ls":
-		c.descLs()
+		err := c.descLs()
+		if err != nil {
+			fmt.Println("\nDesc ls failed:", err)
+		}
 	default:
 		fmt.Println(c.helpMsg)
 	}
 }
 
-func (c *CLI) descAdd() {
+func (c *CLI) descAdd() (err error) {
 	if len(c.args) < 3 {
-		fmt.Println("Insufficient arguments for `desc add [description]` command: need description field.")
-		return
+		return fmt.Errorf("insufficient arguments for `desc add [description]`")
 	}
 
 	// concatenate all further arguments in one description
@@ -46,35 +56,27 @@ func (c *CLI) descAdd() {
 		}
 	}
 
-	dsr := entity.NewRecord(
-		c.cfg.Key,
-		c.cfg.LocalHead+1, // increase head counter for new records
-		c.cfg.Branch,
-		description,
-		time.Now(),
-		nil,
-	)
-	err := c.uc.DescAdd(dsr)
+	rec := &entity.Record{
+		Description: entity.StringField(description),
+		Type:        gokConsts.DESC,
+	}
+	err = c.uc.RecordAdd(c.cfg, rec)
 	if err != nil {
-		c.lg.Error(err.Error())
-		fmt.Println("Failed to add new description record -", err.Error())
-		return
+		return fmt.Errorf("failed to add new description record - %s", err.Error())
 	}
 
-	fmt.Println("Successfully added new description.")
+	return nil
 }
 
-func (c *CLI) descSet() {
+func (c *CLI) descSet() (err error) {
 	if len(c.args) < 4 {
-		fmt.Println("Insufficient arguments for `desc set [record_id] [description]` command.")
-		return
+		return fmt.Errorf("insufficient arguments for `desc set [ID] [description]`")
 	}
 
 	id := c.args[2]
-	_, err := uuid.Parse(id)
+	_, err = uuid.Parse(id)
 	if err != nil {
-		fmt.Println("Invalid record ID - ", err.Error())
-		return
+		return fmt.Errorf("invalid record ID - %s", err.Error())
 	}
 
 	// concatenate all further arguments in one description
@@ -86,39 +88,27 @@ func (c *CLI) descSet() {
 		}
 	}
 
-	dsr := &entity.Record{
+	rec := &entity.Record{
 		ID:          entity.RecordID(id),
-		Head:        c.cfg.LocalHead + 1, // increase head counter
-		Branch:      c.cfg.Branch,
-		Description: entity.Description(description),
-		Type:        gokConsts.DESC,
-		UpdatedAt:   time.Now(),
+		Description: entity.StringField(description),
 	}
 
-	err = c.uc.DescSet(dsr)
+	err = c.uc.RecordSet(c.cfg, rec)
 	if err != nil {
-		c.lg.Error(err.Error())
-		if errors.Is(err, gokErrors.ErrRecordNotFound) {
-			fmt.Println("Failed to update description record: record not found -", err.Error())
-		} else {
-			fmt.Println("Failed to update description record -", err.Error())
-		}
-		return
+		return fmt.Errorf("failed to update description record - %s", err.Error())
 	}
 
-	fmt.Println("Successfully updated description.")
+	return nil
 }
 
-func (c *CLI) descLs() {
+func (c *CLI) descLs() (err error) {
 	if len(c.args) > 2 {
-		fmt.Println("Invalid arguments for `desc ls` command.")
-		return
+		return fmt.Errorf("invalid arguments for `desc ls`")
 	}
 
-	list, err := c.uc.DescList()
+	list, err := c.uc.RecordList(c.cfg, gokConsts.DESC)
 	if err != nil {
-		fmt.Println("Failed to get records list -", err.Error(), list)
-		return
+		return fmt.Errorf("failed to get records list - %s", err.Error())
 	}
 
 	if len(list) == 0 {
@@ -126,7 +116,16 @@ func (c *CLI) descLs() {
 		return
 	}
 
-	for _, v := range list {
-		fmt.Println(v)
+	fmt.Printf("\n")
+	for _, r := range list {
+		// Decrypt description for output.
+		desc, errDec := r.Description.Decrypt(c.cfg.Key)
+		if errDec != nil {
+			return fmt.Errorf("failed to decrypt description - %s", errDec.Error())
+		}
+
+		fmt.Printf("%s\t %s\t %d\t %s\n", r.ID, r.Type, r.Head, *desc)
 	}
+
+	return nil
 }

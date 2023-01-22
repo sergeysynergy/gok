@@ -14,18 +14,44 @@ service Storage {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+message Branch {
+  uint64 id = 1;
+  string name = 2;
+  uint64 head = 3;
+}
+
+message Text {
+  string text = 1;
+}
+
+message Pass {
+  string login = 1;
+  string password = 2;
+}
+
+message Card {
+  uint64 number = 1;
+  uint64 code = 2;
+  string expired = 3;
+  string owner = 4;
+}
+
+message File {
+  bytes file = 1;
+}
+
 message Record {
   string id = 1;
   uint64 head = 2;
-  string branch = 3;
+  uint64 branchID = 3;
   string description = 4;
-  string type = 5;
-  google.protobuf.Timestamp updatedAt = 6;
-}
+  google.protobuf.Timestamp updatedAt = 5;
+  string type = 6;
 
-message Branch {
-  string name = 1;
-  uint64 head = 2;
+  Text text = 7;
+  Pass pass = 8;
+  Card card = 9;
+  File file = 10;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

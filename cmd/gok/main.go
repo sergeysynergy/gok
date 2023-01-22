@@ -68,7 +68,7 @@ usage: cli [--help] [--version] [-h] [-u] <command> [<args>]
 Pre command arguments:
 	--help		List available commands.
 	--version	Displays build version and date.
-	-h 			Set home directory where GoK will store its files. Use HOME environment value by default.
+	-hm			Set home directory where GoK will store its files. Use HOME environment value by default.
 	-u 			Set GoK user. Use USER environment value by default.
 
 These are common GoK commands used in various situations:
@@ -76,9 +76,26 @@ These are common GoK commands used in various situations:
 start working with GoK
 	init	Create new or pull existing branch to store secret data
 
-	desc add		Create new description record
-	desc ls			List all description records
-	desc set [ID]	Update description record by given ID
+	desc add [description]		Create new description record
+	desc ls						List all description records
+	desc set [ID] [description]	Update description record by given ID
+
+	text add [description] [text]		Create new text record
+	text ls								List all text records
+	text set [ID] [description] [text]	Update text record by given ID
+
+	pass add [description] [login] [password]		Create new pass record
+	pass ls											List all pass records
+	pass set [ID] [description] [login] [password]	Update text record by given ID
+
+	card add [description] [number] [expired] [code] [owner]		Create new card record
+	card ls															List all cards records
+	card set [ID] [description] [number] [expired] [code] [owner]	Update text record by given ID
+
+	file add [file_path]		Create new file record
+	file ls						List all files records
+	file set [ID] [file_path]	Update file record by given ID
+	file get [ID]				Get local file copy in current directory
 
 	sync data with service
 		pull 	Fetch data from service to local database

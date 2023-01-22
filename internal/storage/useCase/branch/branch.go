@@ -59,11 +59,11 @@ func (u *UseCaseForBranch) AddGet(ctx context.Context, token string) (*entity.Br
 		Name:   "default", // Limit using one branch so far.
 	}
 
-	brn, err = u.repo.CreateRead(ctx, brn)
+	brn, err = u.repo.CreateReadByName(ctx, brn)
 	if err != nil {
 		return nil, err
 	}
-	u.lg.Debug(fmt.Sprintf("Got branch: ID %d; name %s; head %d", brn.ID, brn.Name, brn.Head))
+	u.lg.Debug(fmt.Sprintf("got branch: ID %d; name %s; head %d", brn.ID, brn.Name, brn.Head))
 
 	return brn, nil
 }
@@ -118,12 +118,13 @@ func (u *UseCaseForBranch) Set(ctx context.Context, token string, brn *entity.Br
 	return nil
 }
 
-func (u *UseCaseForBranch) Push(ctx context.Context, token string, localBrn *entity.Branch, records []*entity.Record) (*entity.Branch, error) {
+func (u *UseCaseForBranch) Push(ctx context.Context, token string, localBrn *entity.Branch, recs []*entity.Record) (*entity.Branch, error) {
 	var err error
+	logPrefix := "UseCaseForBranch.Push"
+	u.lg.Debug(logPrefix)
 	defer func() {
 		if err != nil {
-			errPrefix := "UseCaseForBranch.Push"
-			err = fmt.Errorf("%s - %w", errPrefix, err)
+			err = fmt.Errorf("%s - %w", logPrefix, err)
 			u.lg.Error(err.Error())
 		}
 	}()
@@ -149,19 +150,19 @@ func (u *UseCaseForBranch) Push(ctx context.Context, token string, localBrn *ent
 		return nil, gokErrors.ErrLocalBranchBehind
 	}
 
-	err = u.record.BulkCreateUpdate(ctx, records)
+	err = u.record.BulkCreateUpdate(ctx, recs)
 	if err != nil {
 		return nil, err
 	}
 
-	// Push was successful: increase server branch head
+	// IMPORTANT: push was successful - increase server branch head
 	freshBrn.Head = localBrn.Head + 1
 	err = u.repo.Update(ctx, freshBrn)
 	if err != nil {
 		return nil, err
 	}
 
-	u.lg.Debug(fmt.Sprintf("push successful: branch %s; server head %d", freshBrn.Name, freshBrn.Head))
+	u.lg.Debug(fmt.Sprintf("%s successful for branch: ID %d; name %s; head %d", logPrefix, freshBrn.ID, freshBrn.Name, freshBrn.Head))
 	return freshBrn, nil
 }
 
@@ -196,7 +197,7 @@ func (u *UseCaseForBranch) Pull(ctx context.Context, token string, localBrn *ent
 		return nil, nil, gokErrors.ErrPullUpToDate
 	}
 
-	recs, err := u.record.HeadList(ctx, localBrn.Head)
+	recs, err := u.record.HeadList(ctx, localBrn.ID, localBrn.Head)
 	if err != nil {
 		return nil, nil, err
 	}
